@@ -1,0 +1,14 @@
+/* InSighTube 커스텀 스타일 */
+
+/* HTMX 로딩 인디케이터 */
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator {
+    display: flex;
+}
+
+.htmx-request.htmx-indicator {
+    display: flex;
+}

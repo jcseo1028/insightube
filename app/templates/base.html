@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}InSighTube{% endblock %}</title>
+
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- HTMX CDN -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- 커스텀 스타일 -->
+    <link rel="stylesheet" href="/static/css/style.css">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'media',
+        }
+    </script>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div class="min-h-full">
+        <!-- 헤더 -->
+        <header class="bg-white dark:bg-gray-800 shadow-sm">
+            <div class="max-w-4xl mx-auto px-4 py-4">
+                <h1 class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                    🎬 InSighTube
+                </h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    YouTube 영상 핵심 내용 AI 요약
+                </p>
+            </div>
+        </header>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="max-w-4xl mx-auto px-4 py-8">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- 푸터 -->
+        <footer class="mt-auto py-6 text-center text-sm text-gray-400 dark:text-gray-600">
+            <p>InSighTube &copy; 2026 — YouTube 영상 AI 요약 서비스</p>
+        </footer>
+    </div>
+
+    <!-- 클라이언트 스크립트 -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

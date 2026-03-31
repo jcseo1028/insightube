@@ -1,0 +1,142 @@
+<!-- 요약 결과 HTMX 파셜 -->
+<section class="bg-white dark:bg-gray-800 rounded-2xl shadow-md overflow-hidden">
+    <!-- 영상 정보 헤더 -->
+    <div class="flex flex-col sm:flex-row gap-4 p-6 border-b border-gray-100 dark:border-gray-700">
+        {% if thumbnail_url %}
+        <a href="https://www.youtube.com/watch?v={{ video_id }}" target="_blank" rel="noopener"
+           class="shrink-0">
+            <img
+                src="{{ thumbnail_url }}"
+                alt="{{ title }}"
+                class="w-full sm:w-48 rounded-lg object-cover aspect-video"
+            >
+        </a>
+        {% endif %}
+        <div class="flex flex-col justify-center min-w-0">
+            <h3 class="text-lg font-semibold truncate">
+                <a href="https://www.youtube.com/watch?v={{ video_id }}" target="_blank" rel="noopener"
+                   class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                    {{ title or "제목 없음" }}
+                </a>
+            </h3>
+            {% if channel %}
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ channel }}</p>
+            {% endif %}
+            {% if duration %}
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">⏱ {{ duration }}</p>
+            {% endif %}
+            {% if options %}
+            <div class="flex items-center gap-2 mt-2">
+                <span class="inline-block px-2 py-0.5 text-xs rounded-full
+                             {% if options.detail_level.value == 'brief' %}
+                             bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400
+                             {% elif options.detail_level.value == 'detailed' %}
+                             bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400
+                             {% else %}
+                             bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400
+                             {% endif %}">
+                    {% if options.detail_level.value == 'brief' %}간단
+                    {% elif options.detail_level.value == 'detailed' %}상세
+                    {% else %}보통{% endif %} 요약
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 요약 내용 -->
+    <div class="p-6 space-y-6">
+        <!-- 한 줄 요약 -->
+        <div>
+            <h4 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
+                핵심 요약
+            </h4>
+            <p class="text-base leading-relaxed bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4">
+                {{ summary.one_line }}
+            </p>
+        </div>
+
+        <!-- 주요 포인트 -->
+        <div>
+            <h4 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
+                주요 포인트
+                <span class="text-xs font-normal text-gray-400 ml-1">({{ summary.key_points|length }}개)</span>
+            </h4>
+            <ul class="space-y-2">
+                {% for point in summary.key_points %}
+                <li class="flex items-start gap-2">
+                    <span class="text-indigo-500 mt-1 shrink-0">•</span>
+                    <span class="leading-relaxed">{{ point }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- 키워드 태그 -->
+        <div>
+            <h4 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
+                키워드
+            </h4>
+            <div class="flex flex-wrap gap-2">
+                {% for keyword in summary.keywords %}
+                <span class="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-sm
+                             rounded-full text-gray-700 dark:text-gray-300">
+                    #{{ keyword }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 전체 스크립트 (자막) -->
+        {% if transcript %}
+        <div>
+            <details class="group">
+                <summary class="flex items-center gap-2 cursor-pointer text-sm font-semibold
+                                text-indigo-600 dark:text-indigo-400 uppercase tracking-wide
+                                hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors
+                                select-none">
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none"
+                         stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 5l7 7-7 7"/>
+                    </svg>
+                    전체 스크립트 (자막)
+                    <span class="text-xs font-normal text-gray-400">
+                        — {{ transcript|length|string }} 자
+                    </span>
+                </summary>
+                <div class="mt-3 relative">
+                    <button onclick="copyTranscript(this)"
+                            class="absolute top-3 right-3 p-2 text-gray-400 hover:text-indigo-600
+                                   dark:hover:text-indigo-400 transition-colors rounded-lg
+                                   hover:bg-gray-100 dark:hover:bg-gray-600"
+                            title="스크립트 복사">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                    </button>
+                    <div class="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 pr-12
+                                max-h-96 overflow-y-auto
+                                text-sm leading-relaxed text-gray-700 dark:text-gray-300
+                                whitespace-pre-wrap break-words
+                                scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
+                         id="transcript-text">{{ transcript }}</div>
+                </div>
+            </details>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<script>
+function copyTranscript(btn) {
+    const text = document.getElementById('transcript-text').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        btn.innerHTML = '<svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+        setTimeout(() => {
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>';
+        }, 2000);
+    });
+}
+</script>
