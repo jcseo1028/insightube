@@ -52,16 +52,29 @@ async def transcript_not_found_handler(request: Request, exc: TranscriptNotFound
 ### LangChain 사용
 
 - `ChatOpenAI`로 LLM 인스턴스를 생성한다.
-- `PromptTemplate`으로 프롬프트를 정의하고 체인을 구성한다.
+  - `max_retries=5`를 설정하여 429 Rate Limit 등 일시적 오류 시 자동 재시도한다.
+- `ChatPromptTemplate`으로 프롬프트를 정의하고 체인을 구성한다.
+- 요약 상세도(간단/보통/상세)에 따라 프롬프트를 동적으로 생성한다 (`_build_summary_prompt`).
 - 출력 파싱에는 `PydanticOutputParser`를 사용한다.
 - 긴 텍스트는 `RecursiveCharacterTextSplitter`로 분할 후 Map-Reduce 패턴을 적용한다.
+  - Map 단계에서 `asyncio.Semaphore`로 동시 요청 수를 제한하여 Rate Limit을 방지한다.
+
+### YouTube 자막 처리
+
+- 자막 텍스트는 타임스탬프 기반으로 문단 구분하여 가독성을 높인다 (`_format_transcript`).
+- 일정 간격(30초)마다 `[MM:SS]` 타임스탬프와 줄바꿈을 삽입한다.
+- 요약에는 포맷팅된 텍스트를 그대로 전달한다 (LLM이 타임스탬프를 무시할 수 있음).
 
 ### 프론트엔드 (Jinja2 템플릿)
 
 - `app/templates/base.html`을 상속받아 페이지를 구성한다.
 - TailwindCSS CDN을 사용한다 (별도 빌드 불필요).
-- HTMX 파셜은 `app/templates/partials/`에 위치한다.
+- HTMX 파셔은 `app/templates/partials/`에 위치한다.
 - 다크 모드를 `prefers-color-scheme` 미디어 쿼리로 지원한다.
+- 폼 옵션(radio, range, checkbox)은 `_parse_options_from_form()`으로 파싱한다.
+- 접을 수 있는 섹션(`<details>`):
+  - **요약 옵션 패널** — 상세도/포인트 수/키워드 수/스크립트 포함 여부
+  - **전체 스크립트** — 타임스탬프 문단 구분 텍스트 + 복사 버튼
 
 ## 금지 사항
 

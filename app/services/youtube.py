@@ -23,6 +23,67 @@ _YOUTUBE_URL_PATTERNS = [
     re.compile(r"(?:https?://)?(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]{11})"),
 ]
 
+# 자막 문단 구분 간격 (초) — 이 간격마다 줄바꿈 삽입
+_PARAGRAPH_GAP_SECONDS = 30.0
+
+
+def _format_timestamp(seconds: float) -> str:
+    """초를 [MM:SS] 형식의 타임스탬프로 변환한다.
+
+    Args:
+        seconds: 초 단위 시간.
+
+    Returns:
+        "[MM:SS]" 또는 "[H:MM:SS]" 형식 문자열.
+    """
+    total = int(seconds)
+    if total >= 3600:
+        h = total // 3600
+        m = (total % 3600) // 60
+        s = total % 60
+        return f"[{h}:{m:02d}:{s:02d}]"
+    m = total // 60
+    s = total % 60
+    return f"[{m:02d}:{s:02d}]"
+
+
+def _format_transcript(transcript) -> str:
+    """자막 snippet 목록을 타임스탬프 기반으로 문단 구분된 텍스트로 변환한다.
+
+    일정 시간 간격(_PARAGRAPH_GAP_SECONDS)마다 줄바꿈과 타임스탬프를 삽입하여
+    가독성을 높인다.
+
+    Args:
+        transcript: youtube-transcript-api에서 반환된 snippet 리스트.
+
+    Returns:
+        포맷팅된 자막 텍스트.
+    """
+    if not transcript:
+        return ""
+
+    snippets = list(transcript)
+    paragraphs: list[str] = []
+    current_texts: list[str] = []
+    paragraph_start: float = snippets[0].start if snippets else 0.0
+
+    for snippet in snippets:
+        # 이전 문단 시작으로부터 _PARAGRAPH_GAP_SECONDS 이상 지나면 문단 구분
+        if snippet.start - paragraph_start >= _PARAGRAPH_GAP_SECONDS and current_texts:
+            timestamp = _format_timestamp(paragraph_start)
+            paragraphs.append(f"{timestamp} {' '.join(current_texts)}")
+            current_texts = []
+            paragraph_start = snippet.start
+
+        current_texts.append(snippet.text.strip())
+
+    # 마지막 문단
+    if current_texts:
+        timestamp = _format_timestamp(paragraph_start)
+        paragraphs.append(f"{timestamp} {' '.join(current_texts)}")
+
+    return "\n\n".join(paragraphs)
+
 
 def extract_video_id(url: str) -> str:
     """YouTube URL에서 영상 ID를 추출한다.
@@ -75,7 +136,7 @@ async def get_transcript(
             None,
             partial(ytt_api.fetch, video_id, languages=languages),
         )
-        text = " ".join(snippet.text for snippet in transcript)
+        text = _format_transcript(transcript)
         return text
 
     except (NoTranscriptFound, TranscriptsDisabled):
@@ -92,7 +153,7 @@ async def get_transcript(
                     None,
                     partial(ytt_api.fetch, video_id, languages=[generated[0].language_code]),
                 )
-                text = " ".join(snippet.text for snippet in transcript)
+                text = _format_transcript(transcript)
                 return text
 
             raise TranscriptNotFoundError()

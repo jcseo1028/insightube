@@ -73,8 +73,10 @@ class TestGetTranscript:
         """정상적으로 자막을 추출한다."""
         mock_snippet_1 = MagicMock()
         mock_snippet_1.text = "안녕하세요"
+        mock_snippet_1.start = 0.0
         mock_snippet_2 = MagicMock()
         mock_snippet_2.text = "오늘의 영상입니다"
+        mock_snippet_2.start = 5.0
         mock_transcript = [mock_snippet_1, mock_snippet_2]
 
         with patch("app.services.youtube.YouTubeTranscriptApi") as MockApi:

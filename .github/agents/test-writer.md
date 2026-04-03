@@ -57,6 +57,7 @@ async def test_get_transcript_returns_text():
 - 긴 텍스트 요약 (Map-Reduce 방식) 동작 확인
 - 출력 형식 검증 (one_line, key_points, keywords 필드 존재)
 - OpenAI API 에러 시 적절한 예외 발생
+- 요약 옵션(`SummarizeOptions`) 전달 시 상세도별 프롬프트 생성 확인
 
 #### API 엔드포인트 (`tests/test_api.py`)
 
@@ -85,6 +86,17 @@ def mock_video_metadata():
         duration="15:30",
         thumbnail_url="https://img.youtube.com/vi/test/maxresdefault.jpg",
     )
+```
+
+### YouTube 자막 mock 주의사항
+
+- `youtube-transcript-api`의 snippet mock에는 `.text`와 `.start`(초 단위 타임스탬프) 속성이 모두 필요하다.
+- `_format_transcript()`가 `.start` 값을 기반으로 문단 구분을 하므로 반드시 설정해야 한다.
+
+```python
+mock_snippet = MagicMock()
+mock_snippet.text = "안녕하세요"
+mock_snippet.start = 0.0  # 필수!
 ```
 
 ### 필수 테스트 커버리지
