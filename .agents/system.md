@@ -16,6 +16,9 @@
 - LLM summarization in `app/services/summarizer.py`
 - Pydantic schemas and custom exceptions in `app/models/`
 - Jinja2 templates and static assets for the UI
+- Request monitoring logs at router and exception-handler boundaries
+- Windows auto-start scripts in `scripts/` (Task Scheduler + crash recovery loop)
+- Server output log at `logs/server.log`
 
 ## What Does Not Exist in Current Implementation
 - Database or persistent storage

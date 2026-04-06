@@ -11,4 +11,4 @@ Repository-wide rules for this codebase:
 - Prefer incremental, testable modifications. When behavior changes, update or add the nearest relevant tests under `tests/` instead of broad rewrites.
 - When uncertain, align with the existing implementation and patterns in neighboring code rather than introducing new abstractions, frameworks, or cross-cutting conventions.
 - Keep JSON API behavior and HTMX/template behavior consistent with the current split implementation; do not collapse them into a new pattern unless explicitly requested.
-- Persist finalized implementation decisions and notable change rationale into `.agents/changes/` as small, task-scoped records.
+- Persist finalized implementation decisions and notable change rationale into `.agents/changes/` as small, task-scoped records. Name files as `YYYYMMDD_title.md` (creation date + kebab-case title).

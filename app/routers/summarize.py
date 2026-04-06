@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Request
+
+logger = logging.getLogger(__name__)
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -35,8 +39,12 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
     Returns:
         구조화된 요약 응답.
     """
+    start = time.monotonic()
+    logger.info("[API] POST /api/summarize 요청 수신 | url=%s", body.url)
+
     # 1. URL에서 video_id 추출 (API 키 불필요 단계 — 먼저 검증)
     video_id = extract_video_id(body.url)
+    logger.info("[API] video_id=%s 추출 완료", video_id)
 
     settings = get_settings()
 
@@ -66,6 +74,8 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
         transcript=transcript if body.options.include_transcript else "",
     )
 
+    elapsed = time.monotonic() - start
+    logger.info("[API] video_id=%s 요약 완료 | %.2fs", video_id, elapsed)
     return SummarizeResponse(success=True, data=data)
 
 
@@ -116,6 +126,9 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
     Returns:
         요약 결과 HTML 파셜.
     """
+    start = time.monotonic()
+    logger.info("[HTMX] POST /summarize 요청 수신")
+
     # 폼 데이터 파싱
     form = await request.form()
     url = form.get("url", "")
@@ -123,6 +136,7 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
 
     # 1. URL에서 video_id 추출 (API 키 불필요 단계 — 먼저 검증)
     video_id = extract_video_id(str(url))
+    logger.info("[HTMX] video_id=%s 추출 완료 | detail_level=%s", video_id, options.detail_level.value)
 
     settings = get_settings()
 
@@ -138,6 +152,9 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
 
     # 4. AI 요약 (옵션 전달)
     summary: SummaryResult = await summarize_transcript(transcript, options)
+
+    elapsed = time.monotonic() - start
+    logger.info("[HTMX] video_id=%s 요약 완료 | %.2fs", video_id, elapsed)
 
     # 5. HTML 파셜 렌더링
     return templates.TemplateResponse(

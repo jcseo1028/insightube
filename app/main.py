@@ -43,6 +43,7 @@ async def index(request: Request) -> HTMLResponse:
 @app.exception_handler(InvalidURLError)
 async def invalid_url_handler(request: Request, exc: InvalidURLError) -> JSONResponse:
     """유효하지 않은 URL 에러 핸들러."""
+    logger.warning("INVALID_URL | path=%s | %s", request.url.path, exc.message)
     is_htmx = request.headers.get("HX-Request")
     if is_htmx:
         return HTMLResponse(
@@ -63,6 +64,7 @@ async def transcript_not_found_handler(
     request: Request, exc: TranscriptNotFoundError
 ) -> JSONResponse:
     """자막 없음 에러 핸들러."""
+    logger.warning("TRANSCRIPT_NOT_FOUND | path=%s | %s", request.url.path, exc.message)
     is_htmx = request.headers.get("HX-Request")
     if is_htmx:
         return HTMLResponse(
@@ -83,6 +85,7 @@ async def summarization_error_handler(
     request: Request, exc: SummarizationError
 ) -> JSONResponse:
     """요약 오류 핸들러."""
+    logger.error("SUMMARIZATION_ERROR | path=%s | %s", request.url.path, exc.message)
     is_htmx = request.headers.get("HX-Request")
     if is_htmx:
         return HTMLResponse(

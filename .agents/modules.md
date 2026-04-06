@@ -6,6 +6,7 @@
 - Registers the summarize router.
 - Serves the index page.
 - Defines exception handlers for URL, transcript, and summarization failures.
+- Logs error outcomes at each exception handler.
 
 ## `app/config.py`
 - Loads `.env`.
@@ -16,6 +17,7 @@
 - Owns the summarize endpoints.
 - Parses request body or form inputs into current options shape.
 - Orchestrates transcript fetch, metadata fetch, summarization, and response assembly.
+- Logs request start, video_id, and completion with elapsed time for both API and HTMX paths.
 
 ## `app/services/youtube.py`
 - Extracts YouTube video IDs from supported URL forms.
@@ -46,4 +48,8 @@
 - `css/style.css`: HTMX loading indicator styles.
 
 ## `tests/`
-- Covers URL parsing, transcript/metadata behavior, summarize service behavior, and basic HTTP responses.
+- Covers URL parsing, transcript/metadata behavior, summarize service behavior, form option parsing, and basic HTTP responses.
+
+## `scripts/`
+- `start-server.ps1`: launches the server with auto-restart loop on crash (max 10 consecutive failures within 60s).
+- `setup-task.ps1`: registers or unregisters the `InSighTube-Server` Windows Task Scheduler task.

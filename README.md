@@ -52,6 +52,20 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 브라우저에서 `http://localhost:8000` 접속 후 YouTube URL을 입력하면 요약 결과를 확인할 수 있습니다.
 
+### Windows 자동 시작 (선택)
+
+Windows 로그온 시 서버를 자동 실행하려면:
+
+```powershell
+# 작업 스케줄러 등록
+.\scripts\setup-task.ps1
+
+# 등록 해제
+.\scripts\setup-task.ps1 -Unregister
+```
+
+서버 crash 시 자동 재시작되며, 60초 이내 연속 10회 실패 시 중단됩니다. 로그는 `logs/server.log`에 기록됩니다.
+
 ## 요약 옵션
 
 | 옵션 | 설명 | 기본값 |
@@ -83,6 +97,10 @@ app/
 │   └── exceptions.py    # 커스텀 예외
 ├── templates/           # Jinja2 HTML 템플릿
 └── static/              # CSS, JS 정적 파일
+scripts/
+├── start-server.ps1     # 서버 시작 (자동 재시작 루프 포함)
+└── setup-task.ps1       # Windows 작업 스케줄러 등록/해제
+tests/                       # pytest 테스트
 ```
 
 ## 라이선스

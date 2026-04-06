@@ -10,6 +10,7 @@
 - Prefer small, reviewable, testable modifications over broad rewrites.
 - When behavior changes, update the nearest relevant tests under `tests/`.
 - Record finalized implementation decisions and notable rationale in `.agents/changes/`.
+- Name change spec files as `YYYYMMDD_title.md` (e.g. `20260406_request-monitoring-logs.md`). Use the creation date and a short kebab-case title.
 
 ## Current Repository Constraints
 - No persistence layer should be assumed.

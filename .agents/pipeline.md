@@ -32,3 +32,14 @@
 - `TranscriptNotFoundError` -> 404
 - `SummarizationError` -> 500
 - Exception handlers return HTML fragments when the request includes `HX-Request`, and JSON error payloads otherwise.
+- All errors are logged at the exception handler boundary with path and message.
+
+## Observability
+- Summarize requests log: request start, video_id extraction, completion with elapsed time.
+- Logs are tagged `[API]` or `[HTMX]` per request path.
+- Error handlers log at WARNING (`InvalidURLError`, `TranscriptNotFoundError`) or ERROR (`SummarizationError`) level.
+
+## Server Lifecycle (Windows)
+- `scripts/start-server.ps1`: launches uvicorn with auto-restart loop on crash.
+- `scripts/setup-task.ps1`: registers/unregisters a Windows Task Scheduler task (AtLogOn trigger).
+- Server stdout/stderr is written to `logs/server.log`.
