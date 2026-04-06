@@ -51,5 +51,7 @@
 - Covers URL parsing, transcript/metadata behavior, summarize service behavior, form option parsing, and basic HTTP responses.
 
 ## `scripts/`
-- `start-server.ps1`: launches the server with auto-restart loop on crash (max 10 consecutive failures within 60s).
-- `setup-task.ps1`: registers or unregisters the `InSighTube-Server` Windows Task Scheduler task.
+- `start-server.vbs`: VBS wrapper — `WScript.Shell.Run` with window style 0, hides the entire process tree (no console window appears).
+- `run_server.py`: Python server launcher with auto-restart loop (max 10 consecutive failures within 60 s). Spawns uvicorn via `subprocess.run()` with `CREATE_NO_WINDOW` flag. Logs to `logs/server.log`.
+- `start-server.ps1`: original PowerShell launcher retained for manual use / debugging.
+- `setup-task.ps1`: registers or unregisters the `InSighTube-Server` Windows Task Scheduler task. Launch chain: `wscript.exe` → VBS → `pythonw.exe` → `run_server.py` → uvicorn.

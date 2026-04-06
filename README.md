@@ -64,7 +64,7 @@ Windows 로그온 시 서버를 자동 실행하려면:
 .\scripts\setup-task.ps1 -Unregister
 ```
 
-서버 crash 시 자동 재시작되며, 60초 이내 연속 10회 실패 시 중단됩니다. 로그는 `logs/server.log`에 기록됩니다.
+서버는 콘솔 창 없이 백그라운드에서 실행됩니다 (`wscript.exe` → `pythonw.exe` → uvicorn). Crash 시 자동 재시작되며, 60초 이내 연속 10회 실패 시 중단됩니다. 로그는 `logs/server.log`에 기록됩니다.
 
 ## 요약 옵션
 
@@ -98,8 +98,10 @@ app/
 ├── templates/           # Jinja2 HTML 템플릿
 └── static/              # CSS, JS 정적 파일
 scripts/
-├── start-server.ps1     # 서버 시작 (자동 재시작 루프 포함)
-└── setup-task.ps1       # Windows 작업 스케줄러 등록/해제
+├── setup-task.ps1       # Windows 작업 스케줄러 등록/해제
+├── start-server.vbs     # 창 숨김 VBS 래퍼 (Task Scheduler 진입점)
+├── run_server.py        # 서버 실행 + 자동 재시작 루프
+└── start-server.ps1     # 수동 서버 시작 (디버깅용)
 tests/                       # pytest 테스트
 ```
 

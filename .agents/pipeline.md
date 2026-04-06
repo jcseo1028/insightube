@@ -40,6 +40,9 @@
 - Error handlers log at WARNING (`InvalidURLError`, `TranscriptNotFoundError`) or ERROR (`SummarizationError`) level.
 
 ## Server Lifecycle (Windows)
-- `scripts/start-server.ps1`: launches uvicorn with auto-restart loop on crash.
-- `scripts/setup-task.ps1`: registers/unregisters a Windows Task Scheduler task (AtLogOn trigger).
+- Task Scheduler (AtLogOn) → `wscript.exe` → `start-server.vbs` → `pythonw.exe` → `run_server.py` → uvicorn.
+- `start-server.vbs`: VBS wrapper with window style 0 — no console window appears.
+- `run_server.py`: auto-restart loop (max 10 consecutive failures within 60 s). Uses `CREATE_NO_WINDOW` subprocess flag.
+- `setup-task.ps1`: registers/unregisters the scheduled task.
+- `start-server.ps1`: retained for manual use / debugging.
 - Server stdout/stderr is written to `logs/server.log`.

@@ -51,7 +51,17 @@
 - Record the finalized implementation details in `.agents/changes/`.
 
 ## Implemented result
-- Added `scripts/start-server.ps1`: server launch script with auto-restart loop (max 10 consecutive failures within 60s, 5s delay between retries). Writes output to `logs/server.log`.
-- Added `scripts/setup-task.ps1`: registers/unregisters `InSighTube-Server` task in Windows Task Scheduler (AtLogOn trigger, no admin required).
+- Added `scripts/start-server.vbs`: VBS wrapper — `WScript.Shell.Run` with window style 0 makes the entire process tree invisible (no console window).
+- Added `scripts/run_server.py`: Python server launcher with auto-restart loop (max 10 consecutive failures within 60 s, 5 s delay). Uses `CREATE_NO_WINDOW` (`0x08000000`) flag on `subprocess.run()` so the child `python.exe` also creates no console. Logs to `logs/server.log`.
+- Added `scripts/start-server.ps1`: original PowerShell launcher (retained for manual/debugging use).
+- Added `scripts/setup-task.ps1`: registers/unregisters `InSighTube-Server` Windows Task Scheduler task (AtLogOn trigger, Limited RunLevel).
 - Updated `README.md` with auto-start and crash recovery instructions.
 - No application code changes. All existing contracts preserved.
+
+### Launch chain
+```
+Task Scheduler (AtLogOn)
+  → wscript.exe  start-server.vbs      (VBS: Run ..., 0, False — hidden window)
+    → pythonw.exe  run_server.py        (no console host)
+      → python.exe -m uvicorn ...       (CREATE_NO_WINDOW — no console created)
+```

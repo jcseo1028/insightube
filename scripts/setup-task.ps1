@@ -11,7 +11,7 @@ param(
 
 $TaskName = "InSighTube-Server"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$StartScript = Join-Path $ProjectRoot "scripts\start-server.ps1"
+$VbsLauncher = Join-Path $ProjectRoot "scripts\start-server.vbs"
 
 # --- 해제 모드 ---
 if ($Unregister) {
@@ -33,8 +33,8 @@ if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
 }
 
 $Action = New-ScheduledTaskAction `
-    -Execute "powershell.exe" `
-    -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$StartScript`"" `
+    -Execute "wscript.exe" `
+    -Argument "`"$VbsLauncher`"" `
     -WorkingDirectory $ProjectRoot
 
 $Trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
@@ -62,5 +62,5 @@ Register-ScheduledTask `
 
 Write-Host "[OK] Task '$TaskName' registered." -ForegroundColor Green
 Write-Host "  - Trigger: At user logon ($env:USERNAME)" -ForegroundColor Cyan
-Write-Host "  - Script: $StartScript" -ForegroundColor Cyan
+Write-Host "  - Launcher: $VbsLauncher" -ForegroundColor Cyan
 Write-Host "  - Restart: up to 3 retries, 1 min interval" -ForegroundColor Cyan
