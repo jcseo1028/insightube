@@ -92,3 +92,39 @@ class SummarizeResponse(BaseModel):
     success: bool
     data: SummarizeData | None = None
     error: ErrorDetail | None = None
+
+
+# --- 히스토리 스키마 ---
+
+
+class HistoryListItem(BaseModel):
+    """히스토리 목록용 간략 항목."""
+
+    id: int
+    video_id: str
+    url: str
+    title: str = ""
+    channel: str = ""
+    duration: str = ""
+    thumbnail_url: str = ""
+    one_line: str
+    detail_level: str = "normal"
+    created_at: str
+
+
+class HistoryDetail(BaseModel):
+    """히스토리 상세 항목 (요약 전체 포함)."""
+
+    id: int
+    video_id: str
+    url: str
+    title: str = ""
+    channel: str = ""
+    duration: str = ""
+    thumbnail_url: str = ""
+    one_line: str
+    key_points: list[str]
+    keywords: list[str]
+    transcript: str = ""
+    detail_level: str = "normal"
+    created_at: str

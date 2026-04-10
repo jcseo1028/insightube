@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -11,16 +13,26 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from app.models.exceptions import InvalidURLError, TranscriptNotFoundError, SummarizationError
-from app.routers import summarize
+from app.routers import summarize, history
+from app.services.history import init_db
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# --- Lifespan ---
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """DB 초기화 등 앱 시작/종료 시 실행할 작업."""
+    await init_db()
+    yield
+
 
 # --- 앱 인스턴스 ---
 app = FastAPI(
     title="InSighTube",
     description="YouTube 영상 핵심 내용 AI 요약 서비스",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # --- 정적 파일 & 템플릿 ---
@@ -30,6 +42,7 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 # --- 라우터 등록 ---
 app.include_router(summarize.router)
+app.include_router(history.router)
 
 
 # --- 페이지 라우트 ---

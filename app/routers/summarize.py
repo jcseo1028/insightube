@@ -23,6 +23,7 @@ from app.models.schemas import (
 )
 from app.services.youtube import extract_video_id, get_transcript, get_video_metadata
 from app.services.summarizer import summarize_transcript
+from app.services import history as history_service
 from app.config import get_settings
 
 router = APIRouter()
@@ -76,6 +77,25 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
 
     elapsed = time.monotonic() - start
     logger.info("[API] video_id=%s 요약 완료 | %.2fs", video_id, elapsed)
+
+    # 6. 히스토리 저장 (실패해도 응답에 영향 없음)
+    try:
+        await history_service.save(
+            video_id=video_id,
+            url=str(body.url),
+            title=data.title,
+            channel=data.channel,
+            duration=data.duration,
+            thumbnail_url=data.thumbnail_url,
+            one_line=summary.one_line,
+            key_points=summary.key_points,
+            keywords=summary.keywords,
+            transcript=data.transcript,
+            detail_level=body.options.detail_level.value,
+        )
+    except Exception:
+        logger.warning("[API] 히스토리 저장 실패", exc_info=True)
+
     return SummarizeResponse(success=True, data=data)
 
 
@@ -156,8 +176,28 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
     elapsed = time.monotonic() - start
     logger.info("[HTMX] video_id=%s 요약 완료 | %.2fs", video_id, elapsed)
 
-    # 5. HTML 파셜 렌더링
-    return templates.TemplateResponse(
+    # 6. 히스토리 저장 (실패해도 응답에 영향 없음)
+    try:
+        await history_service.save(
+            video_id=video_id,
+            url=str(url),
+            title=metadata.title if metadata else "",
+            channel=metadata.channel if metadata else "",
+            duration=metadata.duration if metadata else "",
+            thumbnail_url=metadata.thumbnail_url
+            if metadata
+            else f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+            one_line=summary.one_line,
+            key_points=summary.key_points,
+            keywords=summary.keywords,
+            transcript=transcript if options.include_transcript else "",
+            detail_level=options.detail_level.value,
+        )
+    except Exception:
+        logger.warning("[HTMX] 히스토리 저장 실패", exc_info=True)
+
+    # 7. HTML 파셜 렌더링
+    response = templates.TemplateResponse(
         name="partials/summary_result.html",
         request=request,
         context={
@@ -173,3 +213,5 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
             "options": options,
         },
     )
+    response.headers["HX-Trigger"] = "historyUpdated"
+    return response

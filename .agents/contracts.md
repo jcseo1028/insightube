@@ -9,6 +9,18 @@
 - `POST /summarize`
   - Request body: form fields `url`, `detail_level`, `max_key_points`, `max_keywords`, `include_transcript`
   - Response: HTML partial for HTMX
+  - Response header: `HX-Trigger: historyUpdated`
+- `GET /api/history`
+  - Query: `limit` (optional, default 20, max 100)
+  - Response: `{ success: true, data: HistoryListItem[] }`
+- `GET /api/history/{id}`
+  - Response: `{ success: true, data: HistoryDetail }` or 404
+- `DELETE /api/history/{id}`
+  - Response: `{ success: true }` or 404
+- `GET /history/panel`
+  - Response: HTML partial (history list for side panel)
+- `GET /history/{id}`
+  - Response: HTML partial (reuses `summary_result.html`) or 404 HTML fragment
 
 ## Request Models
 ### `SummarizeRequest`
@@ -56,10 +68,30 @@
 - `code: str`
 - `message: str`
 
+## History Models
+### `HistoryListItem`
+- `id: int`
+- `video_id: str`
+- `url: str`
+- `title: str`
+- `channel: str`
+- `duration: str`
+- `thumbnail_url: str`
+- `one_line: str`
+- `detail_level: str`
+- `created_at: str`
+
+### `HistoryDetail`
+- All fields from `HistoryListItem` plus:
+- `key_points: list[str]`
+- `keywords: list[str]`
+- `transcript: str`
+
 ## Error Codes
 - `INVALID_URL`
 - `TRANSCRIPT_NOT_FOUND`
 - `SUMMARIZATION_ERROR`
+- `NOT_FOUND` (history)
 
 ## Current URL Support
 - `youtube.com/watch?v=...`

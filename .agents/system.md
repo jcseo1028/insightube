@@ -9,20 +9,21 @@
 - Output types: JSON API response and HTMX-rendered HTML partial.
 
 ## What Exists
-- FastAPI app assembly in `app/main.py`
+- FastAPI app assembly in `app/main.py` with lifespan-based DB initialization
 - Runtime settings loading and provider detection in `app/config.py`
-- HTTP routes in `app/routers/summarize.py`
+- HTTP routes in `app/routers/summarize.py` and `app/routers/history.py`
 - YouTube integration in `app/services/youtube.py`
 - LLM summarization in `app/services/summarizer.py`
+- History persistence in `app/services/history.py` (SQLite + aiosqlite)
 - Pydantic schemas and custom exceptions in `app/models/`
-- Jinja2 templates and static assets for the UI
+- Jinja2 templates and static assets for the UI (2-column layout with history side panel)
 - Request monitoring logs at router and exception-handler boundaries
 - Windows auto-start scripts in `scripts/` (Task Scheduler + crash recovery loop)
 - Server output log at `logs/server.log`
+- History database at `data/history.db`
 
 ## What Does Not Exist in Current Implementation
-- Database or persistent storage
 - User accounts or authentication
 - Background workers or queues
 - Multi-step workflow orchestration beyond request-time async calls
-- External API surface beyond the current summarize endpoints
+- External API surface beyond the current summarize and history endpoints

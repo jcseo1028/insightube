@@ -1,0 +1,61 @@
+<!-- 히스토리 사이드 패널 목록 (HTMX 파셜) -->
+{% if items %}
+<ul class="space-y-2">
+    {% for item in items %}
+    <li>
+        <button
+            hx-get="/history/{{ item.id }}"
+            hx-target="#summary-result"
+            hx-swap="innerHTML"
+            class="w-full text-left p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700
+                   transition-colors group cursor-pointer"
+        >
+            <div class="flex gap-3">
+                {% if item.thumbnail_url %}
+                <img
+                    src="{{ item.thumbnail_url }}"
+                    alt=""
+                    class="w-16 h-10 rounded object-cover shrink-0"
+                    loading="lazy"
+                >
+                {% endif %}
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium truncate group-hover:text-indigo-600
+                              dark:group-hover:text-indigo-400 transition-colors">
+                        {{ item.title or "제목 없음" }}
+                    </p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                        {{ item.one_line }}
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[10px] px-1.5 py-0.5 rounded-full
+                                     {% if item.detail_level == 'brief' %}
+                                     bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400
+                                     {% elif item.detail_level == 'detailed' %}
+                                     bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400
+                                     {% else %}
+                                     bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400
+                                     {% endif %}">
+                            {% if item.detail_level == 'brief' %}간단
+                            {% elif item.detail_level == 'detailed' %}상세
+                            {% else %}보통{% endif %}
+                        </span>
+                        <span class="text-[10px] text-gray-400 dark:text-gray-500">
+                            {{ item.created_at[:16] | replace("T", " ") }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </button>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<div class="text-center py-8 text-gray-400 dark:text-gray-500">
+    <svg class="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <p class="text-sm">아직 요약 히스토리가 없습니다.</p>
+</div>
+{% endif %}

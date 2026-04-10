@@ -35,9 +35,17 @@
         </header>
 
         <!-- 메인 콘텐츠 -->
-        <main class="max-w-4xl mx-auto px-4 py-8">
-            {% block content %}{% endblock %}
-        </main>
+        <div class="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-6">
+            <!-- 메인 영역 -->
+            <main class="flex-1 min-w-0">
+                {% block content %}{% endblock %}
+            </main>
+
+            <!-- 히스토리 사이드 패널 -->
+            <aside class="w-full lg:w-80 shrink-0">
+                {% block sidebar %}{% endblock %}
+            </aside>
+        </div>
 
         <!-- 푸터 -->
         <footer class="mt-auto py-6 text-center text-sm text-gray-400 dark:text-gray-600">

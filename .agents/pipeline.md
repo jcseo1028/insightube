@@ -4,6 +4,11 @@
 - `GET /` renders the main page.
 - `POST /api/summarize` accepts JSON and returns `SummarizeResponse`.
 - `POST /summarize` accepts form data and returns the `partials/summary_result.html` template.
+- `GET /api/history` returns recent history list as JSON.
+- `GET /api/history/{id}` returns history detail as JSON.
+- `DELETE /api/history/{id}` deletes a history record.
+- `GET /history/panel` returns the history side panel HTML partial.
+- `GET /history/{id}` returns the history detail as an HTML partial (reuses `summary_result.html`).
 
 ## Current Runtime Flow
 1. Receive a YouTube URL and optional summarize settings.
@@ -15,7 +20,15 @@
 5. Truncate transcript to `max_transcript_length` if needed.
 6. Summarize transcript with `summarize_transcript()`.
 7. Build response payload or template context.
-8. Return JSON for API clients or HTML partial for HTMX requests.
+8. Save result to history DB (fire-and-forget; failure does not affect response).
+9. Return JSON for API clients or HTML partial for HTMX requests.
+   - HTMX response includes `HX-Trigger: historyUpdated` header to auto-refresh the side panel.
+
+## History Flow
+- On page load, the history side panel fires `GET /history/panel` (HTMX `hx-trigger="load"`).
+- After each summarize, the `historyUpdated` event triggers the panel to re-fetch.
+- Clicking a history item fires `GET /history/{id}` → renders into `#summary-result`.
+- History data is stored in SQLite (`data/history.db`) via aiosqlite.
 
 ## Transcript Flow
 - Preferred languages are Korean then English.
