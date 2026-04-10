@@ -13,16 +13,16 @@ class TestParseOptionsFromForm:
         """값이 없으면 현재 기본값을 사용한다."""
         result = _parse_options_from_form({})
 
-        assert result.detail_level == DetailLevel.NORMAL
+        assert result.detail_level == DetailLevel.DETAILED
         assert result.max_key_points == 7
         assert result.max_keywords == 5
         assert result.include_transcript is False
 
-    def test_invalid_detail_level_falls_back_to_normal(self) -> None:
-        """잘못된 상세도 값은 normal로 처리한다."""
+    def test_invalid_detail_level_falls_back_to_detailed(self) -> None:
+        """잘못된 상세도 값은 detailed로 처리한다."""
         result = _parse_options_from_form({"detail_level": "unknown"})
 
-        assert result.detail_level == DetailLevel.NORMAL
+        assert result.detail_level == DetailLevel.DETAILED
 
     def test_max_key_points_is_clamped_to_valid_range(self) -> None:
         """주요 포인트 수는 3..15 범위로 제한한다."""

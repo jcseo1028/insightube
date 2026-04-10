@@ -11,7 +11,7 @@ class DetailLevel(str, Enum):
     """요약 상세도 수준."""
 
     BRIEF = "brief"      # 간단: 핵심만
-    NORMAL = "normal"    # 보통: 기본값
+    NORMAL = "normal"    # 보통: 기본 요약
     DETAILED = "detailed"  # 상세: 풍부한 설명
 
 
@@ -19,7 +19,7 @@ class SummarizeOptions(BaseModel):
     """요약 옵션 설정."""
 
     detail_level: DetailLevel = Field(
-        default=DetailLevel.NORMAL,
+        default=DetailLevel.DETAILED,
         description="요약 상세도 수준 (brief/normal/detailed)",
     )
     max_key_points: int = Field(
@@ -108,7 +108,7 @@ class HistoryListItem(BaseModel):
     duration: str = ""
     thumbnail_url: str = ""
     one_line: str
-    detail_level: str = "normal"
+    detail_level: str = "detailed"
     created_at: str
 
 
@@ -126,5 +126,5 @@ class HistoryDetail(BaseModel):
     key_points: list[str]
     keywords: list[str]
     transcript: str = ""
-    detail_level: str = "normal"
+    detail_level: str = "detailed"
     created_at: str

@@ -12,6 +12,7 @@
 
 ## Current Runtime Flow
 1. Receive a YouTube URL and optional summarize settings.
+   - If detail level is omitted in the form path, default to `detailed`.
 2. Parse and validate the video ID with `extract_video_id()`.
 3. Load runtime settings with `get_settings()`.
 4. In parallel:

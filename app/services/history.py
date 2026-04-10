@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS history (
     key_points     TEXT    NOT NULL,
     keywords       TEXT    NOT NULL,
     transcript     TEXT    NOT NULL DEFAULT '',
-    detail_level   TEXT    NOT NULL DEFAULT 'normal',
+    detail_level   TEXT    NOT NULL DEFAULT 'detailed',
     created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
 );
 """

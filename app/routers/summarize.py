@@ -108,11 +108,11 @@ def _parse_options_from_form(form_data: dict) -> SummarizeOptions:
     Returns:
         SummarizeOptions 인스턴스.
     """
-    detail_level_str = form_data.get("detail_level", "normal")
+    detail_level_str = form_data.get("detail_level", "detailed")
     try:
         detail_level = DetailLevel(detail_level_str)
     except ValueError:
-        detail_level = DetailLevel.NORMAL
+        detail_level = DetailLevel.DETAILED
 
     try:
         max_key_points = int(form_data.get("max_key_points", "7"))

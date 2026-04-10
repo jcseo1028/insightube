@@ -88,7 +88,7 @@ async def htmx_history_detail(request: Request, history_id: int) -> HTMLResponse
     try:
         detail_level = DetailLevel(item["detail_level"])
     except ValueError:
-        detail_level = DetailLevel.NORMAL
+        detail_level = DetailLevel.DETAILED
 
     options = SummarizeOptions(detail_level=detail_level)
 
