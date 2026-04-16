@@ -24,6 +24,7 @@ from app.models.schemas import (
 from app.services.youtube import extract_video_id, get_transcript, get_video_metadata
 from app.services.summarizer import summarize_transcript
 from app.services import history as history_service
+from app.services import daily_log as daily_log_service
 from app.config import get_settings
 
 router = APIRouter()
@@ -42,10 +43,12 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
     """
     start = time.monotonic()
     logger.info("[API] POST /api/summarize 요청 수신 | url=%s", body.url)
+    daily_log_service.log_request(url=body.url)
 
     # 1. URL에서 video_id 추출 (API 키 불필요 단계 — 먼저 검증)
     video_id = extract_video_id(body.url)
     logger.info("[API] video_id=%s 추출 완료", video_id)
+    daily_log_service.log_request(url=body.url, video_id=video_id)
 
     settings = get_settings()
 
@@ -95,6 +98,25 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
         )
     except Exception:
         logger.warning("[API] 히스토리 저장 실패", exc_info=True)
+
+    # 7. Daily Log 저장 + 파일 로깅
+    try:
+        await daily_log_service.save(
+            video_id=video_id,
+            title=data.title,
+            channel=data.channel,
+            one_line=summary.one_line,
+            detail_level=body.options.detail_level.value,
+        )
+    except Exception:
+        logger.warning("[API] Daily-log DB 저장 실패", exc_info=True)
+    daily_log_service.log_success(
+        video_id=video_id,
+        title=data.title,
+        channel=data.channel,
+        detail_level=body.options.detail_level.value,
+        elapsed=elapsed,
+    )
 
     return SummarizeResponse(success=True, data=data)
 
@@ -153,10 +175,12 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
     form = await request.form()
     url = form.get("url", "")
     options = _parse_options_from_form(dict(form))
+    daily_log_service.log_request(url=str(url))
 
     # 1. URL에서 video_id 추출 (API 키 불필요 단계 — 먼저 검증)
     video_id = extract_video_id(str(url))
     logger.info("[HTMX] video_id=%s 추출 완료 | detail_level=%s", video_id, options.detail_level.value)
+    daily_log_service.log_request(url=str(url), video_id=video_id)
 
     settings = get_settings()
 
@@ -195,6 +219,25 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
         )
     except Exception:
         logger.warning("[HTMX] 히스토리 저장 실패", exc_info=True)
+
+    # Daily Log 저장 + 파일 로깅
+    try:
+        await daily_log_service.save(
+            video_id=video_id,
+            title=metadata.title if metadata else "",
+            channel=metadata.channel if metadata else "",
+            one_line=summary.one_line,
+            detail_level=options.detail_level.value,
+        )
+    except Exception:
+        logger.warning("[HTMX] Daily-log DB 저장 실패", exc_info=True)
+    daily_log_service.log_success(
+        video_id=video_id,
+        title=metadata.title if metadata else "",
+        channel=metadata.channel if metadata else "",
+        detail_level=options.detail_level.value,
+        elapsed=elapsed,
+    )
 
     # 7. HTML 파셜 렌더링
     response = templates.TemplateResponse(

@@ -15,12 +15,15 @@
 - YouTube integration in `app/services/youtube.py`
 - LLM summarization in `app/services/summarizer.py`
 - History persistence in `app/services/history.py` (SQLite + aiosqlite)
+- Daily Log persistence and file logging in `app/services/daily_log.py`
 - Pydantic schemas and custom exceptions in `app/models/`
 - Jinja2 templates and static assets for the UI (2-column layout with history side panel)
 - Request monitoring logs at router and exception-handler boundaries
 - Windows auto-start scripts in `scripts/` (Task Scheduler + crash recovery loop)
 - Server output log at `logs/server.log`
+- Daily activity logs at `logs/daily/` (date-rotated text files)
 - History database at `data/history.db`
+- Daily Log table in `data/history.db` (`daily_log`)
 
 ## What Does Not Exist in Current Implementation
 - User accounts or authentication

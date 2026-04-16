@@ -13,8 +13,9 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from app.models.exceptions import InvalidURLError, TranscriptNotFoundError, SummarizationError
-from app.routers import summarize, history
+from app.routers import summarize, history, daily_log
 from app.services.history import init_db
+from app.services import daily_log as daily_log_service
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """DB 초기화 등 앱 시작/종료 시 실행할 작업."""
     await init_db()
+    await daily_log_service.init_db()
     yield
 
 
@@ -43,6 +45,7 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 # --- 라우터 등록 ---
 app.include_router(summarize.router)
 app.include_router(history.router)
+app.include_router(daily_log.router)
 
 
 # --- 페이지 라우트 ---
@@ -57,6 +60,7 @@ async def index(request: Request) -> HTMLResponse:
 async def invalid_url_handler(request: Request, exc: InvalidURLError) -> JSONResponse:
     """유효하지 않은 URL 에러 핸들러."""
     logger.warning("INVALID_URL | path=%s | %s", request.url.path, exc.message)
+    daily_log_service.log_failure("FAIL_URL", url=str(request.url), error_msg=exc.message)
     is_htmx = request.headers.get("HX-Request")
     if is_htmx:
         return HTMLResponse(
@@ -78,6 +82,7 @@ async def transcript_not_found_handler(
 ) -> JSONResponse:
     """자막 없음 에러 핸들러."""
     logger.warning("TRANSCRIPT_NOT_FOUND | path=%s | %s", request.url.path, exc.message)
+    daily_log_service.log_failure("FAIL_TRANSCRIPT", url=str(request.url), error_msg=exc.message)
     is_htmx = request.headers.get("HX-Request")
     if is_htmx:
         return HTMLResponse(
@@ -99,6 +104,7 @@ async def summarization_error_handler(
 ) -> JSONResponse:
     """요약 오류 핸들러."""
     logger.error("SUMMARIZATION_ERROR | path=%s | %s", request.url.path, exc.message)
+    daily_log_service.log_failure("FAIL_SUMMARY", url=str(request.url), error_msg=exc.message)
     is_htmx = request.headers.get("HX-Request")
     if is_htmx:
         return HTMLResponse(

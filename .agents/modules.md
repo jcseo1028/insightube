@@ -4,10 +4,10 @@
 
 - Creates the FastAPI app with lifespan-based startup (DB initialization).
 - Mounts static files and configures Jinja2 templates.
-- Registers the summarize and history routers.
+- Registers the summarize, history, and daily_log routers.
 - Serves the index page.
 - Defines exception handlers for URL, transcript, and summarization failures.
-- Logs error outcomes at each exception handler.
+- Logs error outcomes at each exception handler and writes failure events to daily log files.
 
 ## `app/config.py`
 
@@ -22,6 +22,7 @@
 - Missing or invalid form `detail_level` currently falls back to `detailed`.
 - Orchestrates transcript fetch, metadata fetch, summarization, and response assembly.
 - Saves result to history DB after successful summarization.
+- Saves lightweight record to daily_log DB and writes file log events (request, success, failure).
 - HTMX response triggers `historyUpdated` event for side panel refresh.
 - Logs request start, video_id, and completion with elapsed time for both API and HTMX paths.
 
@@ -58,6 +59,22 @@
 - `delete_by_id()` — removes a record.
 - DB file: `data/history.db`.
 
+## `app/services/daily_log.py`
+
+- Manages the `daily_log` SQLite table in `data/history.db` via aiosqlite.
+- `init_db()` — creates table and date index on startup.
+- `save()` — inserts a lightweight log entry (video_id, title, channel, one_line, detail_level).
+- `get_by_date()` — returns log items for a specific date (default: today KST).
+- `get_recent_days()` — returns date-grouped summaries for the last N days.
+- File logging via `TimedRotatingFileHandler` to `logs/daily/`.
+- `log_request()`, `log_success()`, `log_failure()` — write structured text events.
+
+## `app/routers/daily_log.py`
+
+- Owns the daily log read endpoints (JSON API only, no HTMX partials yet).
+- `GET /api/daily-log` — returns log items for a specific date.
+- `GET /api/daily-log/recent` — returns date-grouped summaries.
+
 ## `app/models/schemas.py`
 
 - Defines request, response, summary, metadata, option, error, and history schemas.
@@ -65,6 +82,8 @@
 - `SummarizeOptions.detail_level` defaults to `detailed`.
 - `HistoryListItem` — lightweight history item for side panel.
 - `HistoryDetail` — full history item with key_points/keywords/transcript.
+- `DailyLogItem` — lightweight daily log entry.
+- `DailyLogSummary` — date-grouped daily log with count and items.
 
 ## `app/models/exceptions.py`
 
@@ -84,7 +103,7 @@
 
 ## `tests/`
 
-- Covers URL parsing, transcript/metadata behavior, summarize service behavior, form option parsing, basic HTTP responses, history CRUD, and history router endpoints.
+- Covers URL parsing, transcript/metadata behavior, summarize service behavior, form option parsing, basic HTTP responses, history CRUD, history router endpoints, daily log DB CRUD, daily log file logging, and daily log router endpoints.
 
 ## `scripts/`
 

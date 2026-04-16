@@ -128,3 +128,26 @@ class HistoryDetail(BaseModel):
     transcript: str = ""
     detail_level: str = "detailed"
     created_at: str
+
+
+# --- Daily Log 스키마 ---
+
+
+class DailyLogItem(BaseModel):
+    """일별 로그 개별 항목."""
+
+    id: int
+    video_id: str
+    title: str = ""
+    channel: str = ""
+    one_line: str = ""
+    detail_level: str = "normal"
+    created_at: str
+
+
+class DailyLogSummary(BaseModel):
+    """일별 로그 날짜 그룹."""
+
+    date: str
+    count: int
+    items: list[DailyLogItem]

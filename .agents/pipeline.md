@@ -22,7 +22,8 @@
 6. Summarize transcript with `summarize_transcript()`.
 7. Build response payload or template context.
 8. Save result to history DB (fire-and-forget; failure does not affect response).
-9. Return JSON for API clients or HTML partial for HTMX requests.
+9. Save lightweight record to daily_log DB (fire-and-forget) and write SUCCESS event to file log.
+10. Return JSON for API clients or HTML partial for HTMX requests.
    - HTMX response includes `HX-Trigger: historyUpdated` header to auto-refresh the side panel.
 
 ## History Flow
@@ -30,6 +31,14 @@
 - After each summarize, the `historyUpdated` event triggers the panel to re-fetch.
 - Clicking a history item fires `GET /history/{id}` → renders into `#summary-result`.
 - History data is stored in SQLite (`data/history.db`) via aiosqlite.
+
+## Daily Log Flow
+- On each summarize request, a lightweight log entry (video_id, title, channel, one_line, detail_level) is saved to the `daily_log` table.
+- Simultaneously, structured text events (REQUEST, SUCCESS, FAIL_*) are written to `logs/daily/YYYY-MM-DD.log`.
+- File logging uses `TimedRotatingFileHandler` for automatic date rotation.
+- DB and file logging are independent — DB failure does not prevent file logging.
+- `GET /api/daily-log?date=YYYY-MM-DD` returns log items for a given date.
+- `GET /api/daily-log/recent?days=N` returns date-grouped summaries.
 
 ## Transcript Flow
 - Preferred languages are Korean then English.
@@ -52,6 +61,8 @@
 - Summarize requests log: request start, video_id extraction, completion with elapsed time.
 - Logs are tagged `[API]` or `[HTMX]` per request path.
 - Error handlers log at WARNING (`InvalidURLError`, `TranscriptNotFoundError`) or ERROR (`SummarizationError`) level.
+- Daily file logs capture REQUEST, SUCCESS, and FAIL_* events to `logs/daily/` with timestamps and context.
+- Exception handlers write FAIL_URL, FAIL_TRANSCRIPT, FAIL_SUMMARY events to the daily log file.
 
 ## Server Lifecycle (Windows)
 - Task Scheduler (AtLogOn) → `wscript.exe` → `start-server.vbs` → `pythonw.exe` → `run_server.py` → uvicorn.

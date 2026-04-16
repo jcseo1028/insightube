@@ -101,6 +101,33 @@
 - `keywords: list[str]`
 - `transcript: str`
 
+## Daily Log Routes
+
+- `GET /api/daily-log`
+  - Query: `date` (optional, default: today KST, format: `YYYY-MM-DD`)
+  - Response: `{ success: true, data: DailyLogItem[] }`
+- `GET /api/daily-log/recent`
+  - Query: `days` (optional, default 7, max 90)
+  - Response: `{ success: true, data: DailyLogSummary[] }`
+
+## Daily Log Models
+
+### `DailyLogItem`
+
+- `id: int`
+- `video_id: str`
+- `title: str`
+- `channel: str`
+- `one_line: str`
+- `detail_level: str`
+- `created_at: str`
+
+### `DailyLogSummary`
+
+- `date: str` (YYYY-MM-DD)
+- `count: int`
+- `items: list[DailyLogItem]`
+
 ## Error Codes
 
 - `INVALID_URL`
