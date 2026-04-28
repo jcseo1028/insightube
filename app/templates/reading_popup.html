@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오늘의 독서 — InSighTube</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script>
+        tailwind.config = { darkMode: 'media' };
+    </script>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+<div class="max-w-3xl mx-auto p-6">
+    <header class="mb-6">
+        <h1 class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">📖 오늘의 독서 내용</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Notion 독서 DB의 '읽기 완료' 페이지 중 한 권을 랜덤으로 골라 요약합니다.
+        </p>
+    </header>
+
+    <!-- 로딩 상태 -->
+    <div id="reading-loading" class="flex flex-col items-center justify-center py-16">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600"></div>
+        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm">독서 내용을 가져오는 중...</p>
+    </div>
+
+    <!-- 결과 영역 -->
+    <div id="reading-result" class="hidden"></div>
+
+    <!-- 에러 영역 -->
+    <div id="reading-error" class="hidden bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800
+                                   rounded-2xl p-6 text-red-700 dark:text-red-300"></div>
+
+    <div class="mt-8 flex justify-between items-center">
+        <button id="reading-retry"
+                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium
+                       transition-colors">
+            다른 책으로 다시 추천
+        </button>
+        <button onclick="window.close()"
+                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600
+                       text-gray-700 dark:text-gray-200 rounded-xl text-sm font-medium transition-colors">
+            닫기
+        </button>
+    </div>
+</div>
+
+<script>
+const loadingEl = document.getElementById('reading-loading');
+const resultEl = document.getElementById('reading-result');
+const errorEl = document.getElementById('reading-error');
+const retryBtn = document.getElementById('reading-retry');
+
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+    ));
+}
+
+function renderResult(data) {
+    const meta = data.meta || {};
+    const summary = data.summary || {};
+    const tags = []
+        .concat(meta.categories || [])
+        .concat(meta.reading_types || []);
+
+    const tagsHtml = tags.map(t =>
+        `<span class="inline-block px-2.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30
+                      text-indigo-700 dark:text-indigo-300 text-xs rounded-full">${escapeHtml(t)}</span>`
+    ).join(' ');
+
+    const points = (summary.key_points || []).map(p =>
+        `<li class="flex items-start gap-2"><span class="text-indigo-500 mt-1">•</span>
+         <span class="leading-relaxed">${escapeHtml(p)}</span></li>`
+    ).join('');
+
+    const keywords = (summary.keywords || []).map(k =>
+        `<span class="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-sm
+                      rounded-full text-gray-700 dark:text-gray-300">#${escapeHtml(k)}</span>`
+    ).join(' ');
+
+    const period = (meta.start_date || meta.end_date)
+        ? `${escapeHtml(meta.start_date || '')} ~ ${escapeHtml(meta.end_date || '')}`
+        : '';
+
+    const fallbackBanner = data.used_fallback
+        ? `<div class="mb-4 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/30
+                       text-yellow-800 dark:text-yellow-200 text-xs rounded-lg">
+              본문 블록이 비어 있어, 메모/비고/속성 정보 기반으로 요약했습니다.
+           </div>` : '';
+
+    resultEl.innerHTML = `
+      <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 space-y-6">
+        ${fallbackBanner}
+        <div>
+          <h2 class="text-xl font-semibold">${escapeHtml(data.title)}</h2>
+          ${meta.author ? `<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${escapeHtml(meta.author)}</p>` : ''}
+          ${meta.publisher ? `<p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">${escapeHtml(meta.publisher)}</p>` : ''}
+          ${tags ? `<div class="flex flex-wrap gap-1.5 mt-3">${tagsHtml}</div>` : ''}
+          <div class="flex flex-wrap gap-3 text-xs text-gray-400 dark:text-gray-500 mt-3">
+            ${period ? `<span>📅 ${period}</span>` : ''}
+            ${meta.rating != null ? `<span>⭐ 평가 ${escapeHtml(meta.rating)}</span>` : ''}
+            ${meta.expected != null ? `<span>🎯 기대 ${escapeHtml(meta.expected)}</span>` : ''}
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
+            핵심 요약
+          </h3>
+          <p class="text-base leading-relaxed bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4">
+            ${escapeHtml(summary.one_line || '')}
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
+            주요 포인트
+          </h3>
+          <ul class="space-y-2">${points}</ul>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
+            키워드
+          </h3>
+          <div class="flex flex-wrap gap-2">${keywords}</div>
+        </div>
+
+        ${data.notion_url ? `
+        <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+          <a href="${escapeHtml(data.notion_url)}" target="_blank" rel="noopener"
+             class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+            Notion 원문 페이지 열기 ↗
+          </a>
+        </div>` : ''}
+      </section>`;
+    resultEl.classList.remove('hidden');
+}
+
+function renderError(message) {
+    errorEl.textContent = message || '오류가 발생했습니다.';
+    errorEl.classList.remove('hidden');
+}
+
+async function loadReading() {
+    loadingEl.classList.remove('hidden');
+    resultEl.classList.add('hidden');
+    errorEl.classList.add('hidden');
+    resultEl.innerHTML = '';
+    errorEl.textContent = '';
+
+    try {
+        const resp = await fetch('/api/reading/today-summary', { cache: 'no-store' });
+        const json = await resp.json();
+        loadingEl.classList.add('hidden');
+        if (json.success && json.data) {
+            renderResult(json.data);
+        } else {
+            const err = json.error || {};
+            renderError(err.message || '요청을 처리할 수 없습니다.');
+        }
+    } catch (e) {
+        loadingEl.classList.add('hidden');
+        renderError('네트워크 오류가 발생했습니다: ' + e.message);
+    }
+}
+
+retryBtn.addEventListener('click', loadReading);
+loadReading();
+</script>
+</body>
+</html>

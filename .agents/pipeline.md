@@ -40,6 +40,24 @@
 - `GET /api/daily-log?date=YYYY-MM-DD` returns log items for a given date.
 - `GET /api/daily-log/recent?days=N` returns date-grouped summaries.
 
+## Reading (Notion) Flow
+- 메인 화면의 “오늘의 독서 내용” 버튼 클릭 → `window.open('/reading/today', ...)` (새 팝업 창).
+- 팝업 로드 후 `fetch('/api/reading/today-summary')` 호출.
+- 서버:
+  1. `fetch_completed_pages()` — Notion DB query (`읽기 종료` date `is_not_empty`).
+  2. `pick_random_completed()` — 랜덤 1건 선택. 비어 있으면 `NoCompletedPagesError`.
+  3. `fetch_page_block_text()` — 1단계 자식 블록 평탄화.
+  4. `build_summary_input()` — 속성 컨텍스트 + 말단 텍스트 결합 (비는 경우 속성만, `used_fallback=True`).
+  5. `summarize_transcript()` — `DetailLevel.NORMAL`로 고정 요약 수행.
+  6. `ReadingSummaryResponse` JSON 반환.
+- 오류 매핑:
+  - `NoCompletedPagesError` → 404 / `NO_COMPLETED_PAGES`
+  - `NotionAuthError` → 502 / `NOTION_AUTH_ERROR`
+  - `NotionNotSharedError` → 502 / `NOTION_NOT_SHARED`
+  - `NotionRateLimitError` → 502 / `NOTION_RATE_LIMIT`
+  - `NotionSchemaMismatchError` → 502 / `NOTION_SCHEMA_MISMATCH`
+  - 기타 → 500 / `UNEXPECTED_ERROR`
+
 ## Transcript Flow
 - Preferred languages are Korean then English.
 - If direct transcript lookup fails, generated transcripts are attempted.

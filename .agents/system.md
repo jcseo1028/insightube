@@ -10,14 +10,15 @@
 
 ## What Exists
 - FastAPI app assembly in `app/main.py` with lifespan-based DB initialization
-- Runtime settings loading and provider detection in `app/config.py`
-- HTTP routes in `app/routers/summarize.py` and `app/routers/history.py`
+- Runtime settings loading and provider detection in `app/config.py` (LLM + Notion)
+- HTTP routes in `app/routers/summarize.py`, `app/routers/history.py`, `app/routers/daily_log.py`, `app/routers/reading.py`
 - YouTube integration in `app/services/youtube.py`
 - LLM summarization in `app/services/summarizer.py`
 - History persistence in `app/services/history.py` (SQLite + aiosqlite)
 - Daily Log persistence and file logging in `app/services/daily_log.py`
+- Notion 독서 DB 연동 in `app/services/notion.py`
 - Pydantic schemas and custom exceptions in `app/models/`
-- Jinja2 templates and static assets for the UI (2-column layout with history side panel)
+- Jinja2 templates and static assets for the UI (2-column layout with history side panel, 오늘의 독서 팝업)
 - Request monitoring logs at router and exception-handler boundaries
 - Windows auto-start scripts in `scripts/` (Task Scheduler + crash recovery loop)
 - Server output log at `logs/server.log`

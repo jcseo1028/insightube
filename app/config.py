@@ -39,6 +39,9 @@ class Settings:
     llm_model: str
     max_transcript_length: int
     summary_language: str
+    notion_api_key: str
+    notion_reading_db_id: str
+    notion_reading_done_property: str
 
 
 def _detect_provider() -> tuple[LLMProvider, str, str | None]:
@@ -84,4 +87,9 @@ def get_settings() -> Settings:
         llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
         max_transcript_length=int(os.getenv("MAX_TRANSCRIPT_LENGTH", "50000")),
         summary_language=os.getenv("SUMMARY_LANGUAGE", "ko"),
+        notion_api_key=os.getenv("NOTION_API_KEY", "").strip(),
+        notion_reading_db_id=os.getenv("NOTION_READING_DB_ID", "").strip(),
+        notion_reading_done_property=os.getenv(
+            "NOTION_READING_DONE_PROPERTY", "읽기 종료"
+        ).strip(),
     )

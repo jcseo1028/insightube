@@ -128,12 +128,48 @@
 - `count: int`
 - `items: list[DailyLogItem]`
 
+## Reading (Notion) Routes
+
+- `GET /reading/today`
+  - Response: HTML popup page that fetches `/api/reading/today-summary` on load.
+- `GET /api/reading/today-summary`
+  - Response: `{ success: true, data: ReadingSummaryData }` on success.
+  - On error: `{ success: false, error: { code, message } }` with status `404` (NO_COMPLETED_PAGES) or `502` (Notion 관련 오류) or `500` (UNEXPECTED_ERROR).
+
+## Reading Models
+
+### `ReadingPageMeta`
+
+- `author: str`
+- `publisher: str`
+- `categories: list[str]`
+- `reading_types: list[str]`
+- `rating: float | None`
+- `expected: float | None`
+- `start_date: str`
+- `end_date: str`
+
+### `ReadingSummaryData`
+
+- `page_id: str`
+- `title: str`
+- `notion_url: str`
+- `meta: ReadingPageMeta`
+- `summary: SummaryResult`
+- `used_fallback: bool` (true when body blocks were empty and fallback context was used)
+
 ## Error Codes
 
 - `INVALID_URL`
 - `TRANSCRIPT_NOT_FOUND`
 - `SUMMARIZATION_ERROR`
 - `NOT_FOUND` (history)
+- `NO_COMPLETED_PAGES`
+- `NOTION_AUTH_ERROR`
+- `NOTION_NOT_SHARED`
+- `NOTION_RATE_LIMIT`
+- `NOTION_SCHEMA_MISMATCH`
+- `UNEXPECTED_ERROR`
 
 ## Current URL Support
 
@@ -150,3 +186,8 @@
   - `LLM_MODEL`
   - `MAX_TRANSCRIPT_LENGTH`
   - `SUMMARY_LANGUAGE`
+- Reading 기능 사용 시 필수:
+  - `NOTION_API_KEY` — Notion Integration secret.
+  - `NOTION_READING_DB_ID` — 대상 독서 DB ID.
+- Reading 기능 선택:
+  - `NOTION_READING_DONE_PROPERTY` — 완료 판별용 date 속성명 (기본: `읽기 종료`).

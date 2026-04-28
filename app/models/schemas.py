@@ -151,3 +151,38 @@ class DailyLogSummary(BaseModel):
     date: str
     count: int
     items: list[DailyLogItem]
+
+
+# --- Reading (Notion 독서 DB) 스키마 ---
+
+
+class ReadingPageMeta(BaseModel):
+    """독서 페이지 메타데이터(팝업 표시용)."""
+
+    author: str = ""
+    publisher: str = ""
+    categories: list[str] = Field(default_factory=list)
+    reading_types: list[str] = Field(default_factory=list)
+    rating: float | None = None
+    expected: float | None = None
+    start_date: str = ""
+    end_date: str = ""
+
+
+class ReadingSummaryData(BaseModel):
+    """오늘의 독서 요약 응답 데이터."""
+
+    page_id: str
+    title: str
+    notion_url: str
+    meta: ReadingPageMeta
+    summary: SummaryResult
+    used_fallback: bool = False
+
+
+class ReadingSummaryResponse(BaseModel):
+    """오늘의 독서 요약 API 응답."""
+
+    success: bool
+    data: ReadingSummaryData | None = None
+    error: ErrorDetail | None = None

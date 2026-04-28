@@ -4,7 +4,7 @@
 
 - Creates the FastAPI app with lifespan-based startup (DB initialization).
 - Mounts static files and configures Jinja2 templates.
-- Registers the summarize, history, and daily_log routers.
+- Registers the summarize, history, daily_log, and reading routers.
 - Serves the index page.
 - Defines exception handlers for URL, transcript, and summarization failures.
 - Logs error outcomes at each exception handler and writes failure events to daily log files.
@@ -13,7 +13,7 @@
 
 - Loads `.env`.
 - Detects current LLM provider from `GITHUB_TOKEN` or `OPENAI_API_KEY`.
-- Produces `Settings` with model, base URL, transcript length limit, and summary language.
+- Produces `Settings` with model, base URL, transcript length limit, summary language, and Notion reading DB settings (`NOTION_API_KEY`, `NOTION_READING_DB_ID`, `NOTION_READING_DONE_PROPERTY`).
 
 ## `app/routers/summarize.py`
 
@@ -75,6 +75,23 @@
 - `GET /api/daily-log` — returns log items for a specific date.
 - `GET /api/daily-log/recent` — returns date-grouped summaries.
 
+## `app/routers/reading.py`
+
+- Owns the today's reading endpoints (Notion 독서 DB 기반).
+- `GET /reading/today` — popup page (server-rendered template).
+- `GET /api/reading/today-summary` — randomly picks one completed page from Notion DB and returns a summary.
+- Maps domain Notion exceptions (`NoCompletedPagesError`, `NotionAuthError`, `NotionNotSharedError`, `NotionRateLimitError`, `NotionSchemaMismatchError`) to JSON error payloads.
+
+## `app/services/notion.py`
+
+- Calls Notion API via `httpx.AsyncClient`.
+- `fetch_completed_pages()` — queries the reading DB filtered by `읽기 종료` date `is_not_empty`.
+- `fetch_page_block_text()` — flattens the first level of page block children into plain text.
+- `extract_title()`, `extract_meta()` — parse title and metadata properties (저자/역자, 출판사, 분류, 독서 유형, 평가/기대 점수, 읽기 시작/종료).
+- `build_summary_input()` — combines attribute context, 메모, 비고, and body text into LLM input. Marks `used_fallback=True` when body is empty.
+- `pick_random_completed()` — returns a random page; raises `NoCompletedPagesError` when empty.
+- Translates HTTP status / Notion error codes into domain exceptions in `app/models/exceptions.py`.
+
 ## `app/models/schemas.py`
 
 - Defines request, response, summary, metadata, option, error, and history schemas.
@@ -84,26 +101,29 @@
 - `HistoryDetail` — full history item with key_points/keywords/transcript.
 - `DailyLogItem` — lightweight daily log entry.
 - `DailyLogSummary` — date-grouped daily log with count and items.
+- `ReadingPageMeta`, `ReadingSummaryData`, `ReadingSummaryResponse` — Notion 독서 페이지 요약 응답용.
 
 ## `app/models/exceptions.py`
 
 - Defines repository-specific exceptions used by routes and services.
+- Notion 연동용: `NotionError`, `NotionAuthError`, `NotionNotSharedError`, `NotionRateLimitError`, `NotionSchemaMismatchError`, `NoCompletedPagesError`.
 
 ## `app/templates/`
 
 - `base.html`: shell layout with 2-column (main + sidebar) structure and CDN includes.
-- `index.html`: input form, HTMX wiring, and history side panel integration.
+- `index.html`: input form, HTMX wiring, history side panel integration, and "오늘의 독서 내용" 버튼.
 - `partials/summary_result.html`: rendered result card and transcript copy UI.
 - `partials/history_panel.html`: side panel history list (loaded via HTMX).
+- `reading_popup.html`: 오늘의 독서 팝업(랜덤 한 권 요약 결과 표시).
 
 ## `app/static/`
 
-- `js/app.js`: clipboard-based YouTube URL autofill helper.
+- `js/app.js`: clipboard-based YouTube URL autofill helper, plus `openReadingToday()` which opens `/reading/today` in a new window.
 - `css/style.css`: HTMX loading indicator styles.
 
 ## `tests/`
 
-- Covers URL parsing, transcript/metadata behavior, summarize service behavior, form option parsing, basic HTTP responses, history CRUD, history router endpoints, daily log DB CRUD, daily log file logging, and daily log router endpoints.
+- Covers URL parsing, transcript/metadata behavior, summarize service behavior, form option parsing, basic HTTP responses, history CRUD, history router endpoints, daily log DB CRUD, daily log file logging, daily log router endpoints, and Notion 독서 파서/라우터(`test_reading.py`).
 
 ## `scripts/`
 

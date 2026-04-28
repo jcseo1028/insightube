@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from app.models.exceptions import InvalidURLError, TranscriptNotFoundError, SummarizationError
-from app.routers import summarize, history, daily_log
+from app.routers import summarize, history, daily_log, reading
 from app.services.history import init_db
 from app.services import daily_log as daily_log_service
 
@@ -46,6 +46,7 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 app.include_router(summarize.router)
 app.include_router(history.router)
 app.include_router(daily_log.router)
+app.include_router(reading.router)
 
 
 # --- 페이지 라우트 ---

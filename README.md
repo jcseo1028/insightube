@@ -10,6 +10,7 @@ YouTube 영상 URL을 입력하면 AI가 핵심 내용을 요약해주는 웹 �
 - **요약 상세도 조절** — 간단 / 보통 / 상세 3단계 + 포인트·키워드 수 조정 (기본값: 상세)
 - **전체 스크립트 보기** — 타임스탬프(`[MM:SS]`) 기반 문단 구분, 복사 버튼 제공
 - **실시간 UI** — HTMX 기반 페이지 리로드 없는 요약 결과 표시
+- **오늘의 독서 내용** — Notion 독서 DB의 "읽기 종료" 페이지 중 무작위 한 권을 골라 새 팝업 창에 요약 표시
 - **Rate Limit 대응** — 자동 재시도(max_retries=5) + 동시 요청 수 제한(Semaphore)
 
 ## 기술 스택
@@ -44,6 +45,19 @@ GITHUB_TOKEN=your-github-token-here
 # 방법 2: OpenAI API Key
 OPENAI_API_KEY=your-openai-api-key-here
 ```
+
+### (선택) 오늘의 독서 내용 기능
+
+Notion 독서 DB와 연동하여 "읽기 완료" 도서 중 한 권을 랜덤으로 요약하는 기능을 사용하려면 다음 환경 변수를 추가합니다:
+
+```env
+NOTION_API_KEY=your-notion-secret-here
+NOTION_READING_DB_ID=your-notion-database-id
+# 완료 판별용 date 속성명 (기본: '읽기 종료')
+NOTION_READING_DONE_PROPERTY=읽기 종료
+```
+
+사전 작업으로 Notion에서 해당 DB 페이지의 "연결(Connections)"에 사용 중인 Integration을 추가해야 합니다. 메인 화면 우측 상단의 **📖 오늘의 독서 내용** 버튼을 클릭하면 새 팝업에서 요약 결과를 확인할 수 있습니다.
 
 ```bash
 # 4. 서버 실행

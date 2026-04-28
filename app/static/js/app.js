@@ -29,3 +29,12 @@ document.addEventListener("DOMContentLoaded", () => {
 function isYouTubeUrl(url) {
     return /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/)/.test(url);
 }
+
+/**
+ * 오늘의 독서 내용 팝업을 새 창으로 연다.
+ * 팝업 차단 회피를 위해 사용자 클릭 핸들러 내에서 직접 호출되어야 한다.
+ */
+function openReadingToday() {
+    const features = "width=720,height=820,resizable=yes,scrollbars=yes";
+    window.open("/reading/today", "insightube_reading", features);
+}
