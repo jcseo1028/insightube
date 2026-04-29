@@ -48,6 +48,7 @@
 - Builds prompts based on detail level and output schema.
 - Chooses short-text or long-text summarization path.
 - Uses LangChain output parsing into `SummaryResult`.
+- `summarize_reading()` — 독서 전용 요약 진입점. `본깨적` 3섹션(본 것 / 깨달은 것 / 적용할 것) 구조로 `ReadingBonkkaejeokSummary` 를 반환.
 
 ## `app/services/history.py`
 
@@ -79,16 +80,20 @@
 
 - Owns the today's reading endpoints (Notion 독서 DB 기반).
 - `GET /reading/today` — popup page (server-rendered template).
-- `GET /api/reading/today-summary` — randomly picks one completed page from Notion DB and returns a summary.
+- `GET /api/reading/today-summary` — randomly picks one completed page from Notion DB and returns a 본깨적 summary (`ReadingBonkkaejeokSummary`).
 - Maps domain Notion exceptions (`NoCompletedPagesError`, `NotionAuthError`, `NotionNotSharedError`, `NotionRateLimitError`, `NotionSchemaMismatchError`) to JSON error payloads.
 
 ## `app/services/notion.py`
 
 - Calls Notion API via `httpx.AsyncClient`.
 - `fetch_completed_pages()` — queries the reading DB filtered by `읽기 종료` date `is_not_empty`.
-- `fetch_page_block_text()` — flattens the first level of page block children into plain text.
+- `fetch_page_blocks()` — returns 1단계 자식 블록 원본 리스트.
+- `blocks_to_text()` — 블록 리스트를 전체 평문으로 평탄화 (`_MAX_BODY_CHARS=12000` 상한).
+- `extract_bonkkaejeok_sections()` — `heading_2` 기준으로 "본 것 / 깨달은 것 / 적용할 것" 세션을 dict로 분리. 공백 무시(예: "본것")도 인식.
+- `extract_seen_section_text()` — (하위 호환) "본 것" 세션만 텍스트로 반환.
+- `fetch_page_block_text()` — (하위 호환) `fetch_page_blocks` + `blocks_to_text` 조합.
 - `extract_title()`, `extract_meta()` — parse title and metadata properties (저자/역자, 출판사, 분류, 독서 유형, 평가/기대 점수, 읽기 시작/종료).
-- `build_summary_input()` — combines attribute context, 메모, 비고, and body text into LLM input. Marks `used_fallback=True` when body is empty.
+- `build_summary_input(page, body_text, seen_text="", sections=None)` — combines attribute context, 메모, 비고, 본깨적 세션 (있는 경우 강조), and 전체 본문(보조)을 LLM 입력으로 조립. 본깨적/본문 모두 비면 `used_fallback=True`.
 - `pick_random_completed()` — returns a random page; raises `NoCompletedPagesError` when empty.
 - Translates HTTP status / Notion error codes into domain exceptions in `app/models/exceptions.py`.
 
@@ -101,7 +106,7 @@
 - `HistoryDetail` — full history item with key_points/keywords/transcript.
 - `DailyLogItem` — lightweight daily log entry.
 - `DailyLogSummary` — date-grouped daily log with count and items.
-- `ReadingPageMeta`, `ReadingSummaryData`, `ReadingSummaryResponse` — Notion 독서 페이지 요약 응답용.
+- `ReadingPageMeta`, `ReadingBonkkaejeokSummary`, `ReadingSummaryData`, `ReadingSummaryResponse` — Notion 독서 페이지 본깨적 요약 응답용.
 
 ## `app/models/exceptions.py`
 
@@ -114,7 +119,7 @@
 - `index.html`: input form, HTMX wiring, history side panel integration, and "오늘의 독서 내용" 버튼.
 - `partials/summary_result.html`: rendered result card and transcript copy UI.
 - `partials/history_panel.html`: side panel history list (loaded via HTMX).
-- `reading_popup.html`: 오늘의 독서 팝업(랜덤 한 권 요약 결과 표시).
+- `reading_popup.html`: 오늘의 독서 팝업(랜덤 한 권 본깨적 3카드 표시).
 
 ## `app/static/`
 

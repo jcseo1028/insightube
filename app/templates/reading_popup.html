@@ -11,7 +11,7 @@
     </script>
 </head>
 <body class="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-<div class="max-w-3xl mx-auto p-6">
+<div class="max-w-5xl mx-auto p-6">
     <header class="mb-6">
         <h1 class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">📖 오늘의 독서 내용</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -70,10 +70,16 @@ function renderResult(data) {
                       text-indigo-700 dark:text-indigo-300 text-xs rounded-full">${escapeHtml(t)}</span>`
     ).join(' ');
 
-    const points = (summary.key_points || []).map(p =>
-        `<li class="flex items-start gap-2"><span class="text-indigo-500 mt-1">•</span>
-         <span class="leading-relaxed">${escapeHtml(p)}</span></li>`
+    const renderList = (items, color) => (items || []).map(p =>
+        `<li class="flex items-start gap-2">
+           <span class="${color} mt-1 shrink-0">•</span>
+           <span class="leading-relaxed text-sm">${escapeHtml(p)}</span>
+         </li>`
     ).join('');
+
+    const seenHtml = renderList(summary.seen, 'text-sky-500');
+    const realizedHtml = renderList(summary.realized, 'text-amber-500');
+    const appliedHtml = renderList(summary.applied, 'text-emerald-500');
 
     const keywords = (summary.keywords || []).map(k =>
         `<span class="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-sm
@@ -90,10 +96,23 @@ function renderResult(data) {
               본문 블록이 비어 있어, 메모/비고/속성 정보 기반으로 요약했습니다.
            </div>` : '';
 
+    const card = (title, icon, color, listHtml, emptyMsg) => `
+      <section class="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700
+                       rounded-2xl p-5 shadow-sm">
+        <h3 class="flex items-center gap-2 text-sm font-semibold ${color} mb-3">
+          <span class="text-base">${icon}</span> ${title}
+        </h3>
+        ${listHtml
+            ? `<ul class="space-y-2">${listHtml}</ul>`
+            : `<p class="text-xs text-gray-400 dark:text-gray-500">${emptyMsg}</p>`}
+      </section>`;
+
     resultEl.innerHTML = `
-      <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 space-y-6">
+      <div class="space-y-5">
         ${fallbackBanner}
-        <div>
+
+        <!-- 도서 헤더 -->
+        <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
           <h2 class="text-xl font-semibold">${escapeHtml(data.title)}</h2>
           ${meta.author ? `<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${escapeHtml(meta.author)}</p>` : ''}
           ${meta.publisher ? `<p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">${escapeHtml(meta.publisher)}</p>` : ''}
@@ -103,39 +122,41 @@ function renderResult(data) {
             ${meta.rating != null ? `<span>⭐ 평가 ${escapeHtml(meta.rating)}</span>` : ''}
             ${meta.expected != null ? `<span>🎯 기대 ${escapeHtml(meta.expected)}</span>` : ''}
           </div>
-        </div>
+        </section>
 
-        <div>
-          <h3 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
-            핵심 요약
+        <!-- 한 줄 요약 -->
+        <section class="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800
+                         rounded-2xl p-5">
+          <h3 class="text-xs font-semibold text-indigo-600 dark:text-indigo-300 uppercase tracking-wide mb-2">
+            💬 한 줄 요약
           </h3>
-          <p class="text-base leading-relaxed bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4">
-            ${escapeHtml(summary.one_line || '')}
-          </p>
+          <p class="text-base leading-relaxed">${escapeHtml(summary.one_line || '')}</p>
+        </section>
+
+        <!-- 본깨적 3카드 -->
+        <div class="grid gap-4 md:grid-cols-3">
+          ${card('본 것', '👁', 'text-sky-600 dark:text-sky-400', seenHtml, '본 내용이 정리되지 않았습니다.')}
+          ${card('깨달은 것', '💡', 'text-amber-600 dark:text-amber-400', realizedHtml, '깨달은 내용이 정리되지 않았습니다.')}
+          ${card('적용할 것', '🎯', 'text-emerald-600 dark:text-emerald-400', appliedHtml, '적용할 내용이 정리되지 않았습니다.')}
         </div>
 
-        <div>
-          <h3 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
-            주요 포인트
-          </h3>
-          <ul class="space-y-2">${points}</ul>
-        </div>
-
-        <div>
-          <h3 class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
-            키워드
+        <!-- 키워드 -->
+        ${keywords ? `
+        <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
+          <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+            🔑 키워드
           </h3>
           <div class="flex flex-wrap gap-2">${keywords}</div>
-        </div>
+        </section>` : ''}
 
         ${data.notion_url ? `
-        <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div class="text-right">
           <a href="${escapeHtml(data.notion_url)}" target="_blank" rel="noopener"
              class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
             Notion 원문 페이지 열기 ↗
           </a>
         </div>` : ''}
-      </section>`;
+      </div>`;
     resultEl.classList.remove('hidden');
 }
 

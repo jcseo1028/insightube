@@ -149,14 +149,22 @@
 - `start_date: str`
 - `end_date: str`
 
+### `ReadingBonkkaejeokSummary`
+
+- `one_line: str` — 책 전체를 관통하는 한 문장 요약.
+- `seen: list[str]` — 책에서 본 사실/핵심 인용/표현.
+- `realized: list[str]` — 깨달은 점/통찰/생각의 전환.
+- `applied: list[str]` — 일상/업무/행동에 적용할 구체적 실천.
+- `keywords: list[str]` — 기억 환기용 키워드.
+
 ### `ReadingSummaryData`
 
 - `page_id: str`
 - `title: str`
 - `notion_url: str`
 - `meta: ReadingPageMeta`
-- `summary: SummaryResult`
-- `used_fallback: bool` (true when body blocks were empty and fallback context was used)
+- `summary: ReadingBonkkaejeokSummary`
+- `used_fallback: bool` (true when both 본깨적 sections 및 body blocks were empty)
 
 ## Error Codes
 

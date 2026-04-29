@@ -12,15 +12,13 @@ from fastapi.templating import Jinja2Templates
 
 from app.models.exceptions import NoCompletedPagesError, NotionError
 from app.models.schemas import (
-    DetailLevel,
+    ReadingBonkkaejeokSummary,
     ReadingPageMeta,
     ReadingSummaryData,
     ReadingSummaryResponse,
-    SummarizeOptions,
-    SummaryResult,
 )
 from app.services import notion as notion_service
-from app.services.summarizer import summarize_transcript
+from app.services.summarizer import summarize_reading
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +67,14 @@ async def api_today_reading_summary() -> JSONResponse:
         page = notion_service.pick_random_completed(pages)
         page_id: str = page.get("id", "")
 
-        body_text = await notion_service.fetch_page_block_text(page_id)
-        input_text, used_fallback = notion_service.build_summary_input(page, body_text)
-
-        options = SummarizeOptions(
-            detail_level=DetailLevel.NORMAL,
-            include_transcript=False,
+        blocks = await notion_service.fetch_page_blocks(page_id)
+        body_text = notion_service.blocks_to_text(blocks)
+        sections = notion_service.extract_bonkkaejeok_sections(blocks)
+        input_text, used_fallback = notion_service.build_summary_input(
+            page, body_text, sections=sections
         )
-        summary: SummaryResult = await summarize_transcript(input_text, options)
+
+        summary: ReadingBonkkaejeokSummary = await summarize_reading(input_text)
 
         title = notion_service.extract_title(page)
         meta: ReadingPageMeta = notion_service.extract_meta(page)
@@ -84,8 +82,12 @@ async def api_today_reading_summary() -> JSONResponse:
 
         elapsed = time.monotonic() - started
         logger.info(
-            "[Reading] page_id=%s | fallback=%s | elapsed=%.2fs",
+            "[Reading] page_id=%s | 본=%d | 깨=%d | 적=%d | body=%d | fallback=%s | elapsed=%.2fs",
             page_id,
+            len(sections.get("본것", "")),
+            len(sections.get("깨달은것", "")),
+            len(sections.get("적용할것", "")),
+            len(body_text),
             used_fallback,
             elapsed,
         )

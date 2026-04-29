@@ -14,7 +14,7 @@ from app.models.exceptions import (
     NotionAuthError,
     NotionNotSharedError,
 )
-from app.models.schemas import SummaryResult
+from app.models.schemas import ReadingBonkkaejeokSummary
 from app.services import notion as notion_service
 
 
@@ -101,6 +101,96 @@ class TestNotionParsers:
         picked = notion_service.pick_random_completed(pages)
         assert picked["id"] == "page-id-1"
 
+    def test_extract_seen_section_text(self) -> None:
+        def _h2(text: str) -> dict[str, Any]:
+            return {
+                "type": "heading_2",
+                "heading_2": {"rich_text": [{"plain_text": text, "type": "text"}]},
+            }
+
+        def _p(text: str) -> dict[str, Any]:
+            return {
+                "type": "paragraph",
+                "paragraph": {"rich_text": [{"plain_text": text, "type": "text"}]},
+            }
+
+        blocks = [
+            _h2("Before Reading"),
+            _p("도입 메모"),
+            _h2("본 것"),
+            _p("핵심 표현 1"),
+            _p("핵심 표현 2"),
+            _h2("DAY 01 ~ 10"),
+            _p("이건 다음 섹션"),
+        ]
+        text = notion_service.extract_seen_section_text(blocks)
+        assert "핵심 표현 1" in text
+        assert "핵심 표현 2" in text
+        assert "도입 메모" not in text
+        assert "이건 다음 섹션" not in text
+
+    def test_extract_seen_section_text_absent(self) -> None:
+        blocks = [
+            {
+                "type": "paragraph",
+                "paragraph": {"rich_text": [{"plain_text": "내용", "type": "text"}]},
+            }
+        ]
+        assert notion_service.extract_seen_section_text(blocks) == ""
+
+    def test_extract_bonkkaejeok_sections(self) -> None:
+        def _h2(text: str) -> dict[str, Any]:
+            return {
+                "type": "heading_2",
+                "heading_2": {"rich_text": [{"plain_text": text, "type": "text"}]},
+            }
+
+        def _p(text: str) -> dict[str, Any]:
+            return {
+                "type": "paragraph",
+                "paragraph": {"rich_text": [{"plain_text": text, "type": "text"}]},
+            }
+
+        blocks = [
+            _h2("본 것"),
+            _p("관찰 A"),
+            _h2("깨달은 것"),
+            _p("통찰 B"),
+            _h2("적용할 것"),
+            _p("실천 C"),
+            _h2("DAY 01"),
+            _p("그 외"),
+        ]
+        sections = notion_service.extract_bonkkaejeok_sections(blocks)
+        assert "관찰 A" in sections["본것"]
+        assert "통찰 B" in sections["깨달은것"]
+        assert "실천 C" in sections["적용할것"]
+        assert "그 외" not in sections["본것"]
+        assert "그 외" not in sections["깨달은것"]
+        assert "그 외" not in sections["적용할것"]
+
+    def test_build_summary_input_emphasizes_seen(self) -> None:
+        text, fallback = notion_service.build_summary_input(
+            _sample_page(),
+            body_text="전체 본문",
+            seen_text="핵심 표현",
+        )
+        assert "본 것" in text
+        assert "핵심 표현" in text
+        assert "전체 본문" in text
+        assert fallback is False
+
+    def test_build_summary_input_with_bonkkaejeok_sections(self) -> None:
+        text, fallback = notion_service.build_summary_input(
+            _sample_page(),
+            body_text="전체 본문",
+            sections={"본것": "관찰", "깨달은것": "통찰", "적용할것": "실천"},
+        )
+        assert "본 것" in text and "관찰" in text
+        assert "깨달은 것" in text and "통찰" in text
+        assert "적용할 것" in text and "실천" in text
+        assert fallback is False
+
 
 # ──────────────────────────────────────────────
 # 라우터 테스트 — 의존성 모킹
@@ -112,24 +202,36 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def _mock_summary() -> SummaryResult:
-    return SummaryResult(
+def _mock_summary() -> ReadingBonkkaejeokSummary:
+    return ReadingBonkkaejeokSummary(
         one_line="테스트 한 줄 요약",
-        key_points=["포인트1", "포인트2"],
+        seen=["본 것 1", "본 것 2"],
+        realized=["깨달은 것 1"],
+        applied=["적용 실천 1"],
         keywords=["키워드1"],
     )
 
 
 class TestReadingRouter:
     def test_today_summary_success(self, client: TestClient) -> None:
+        sample_blocks = [
+            {
+                "type": "heading_2",
+                "heading_2": {"rich_text": [{"plain_text": "본 것", "type": "text"}]},
+            },
+            {
+                "type": "paragraph",
+                "paragraph": {"rich_text": [{"plain_text": "핵심 표현", "type": "text"}]},
+            },
+        ]
         with patch(
             "app.routers.reading.notion_service.fetch_completed_pages",
             new=AsyncMock(return_value=[_sample_page()]),
         ), patch(
-            "app.routers.reading.notion_service.fetch_page_block_text",
-            new=AsyncMock(return_value="본문 텍스트"),
+            "app.routers.reading.notion_service.fetch_page_blocks",
+            new=AsyncMock(return_value=sample_blocks),
         ), patch(
-            "app.routers.reading.summarize_transcript",
+            "app.routers.reading.summarize_reading",
             new=AsyncMock(return_value=_mock_summary()),
         ):
             resp = client.get("/api/reading/today-summary")
@@ -142,6 +244,9 @@ class TestReadingRouter:
         assert data["title"] == "테스트 도서"
         assert data["notion_url"].endswith("page-id-1")
         assert data["summary"]["one_line"] == "테스트 한 줄 요약"
+        assert data["summary"]["seen"] == ["본 것 1", "본 것 2"]
+        assert data["summary"]["realized"] == ["깨달은 것 1"]
+        assert data["summary"]["applied"] == ["적용 실천 1"]
         assert data["meta"]["author"] == "홍길동"
         assert data["used_fallback"] is False
 

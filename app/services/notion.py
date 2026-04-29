@@ -124,15 +124,12 @@ async def fetch_completed_pages() -> list[dict[str, Any]]:
     return results
 
 
-async def fetch_page_block_text(page_id: str) -> str:
-    """페이지 본문 블록을 텍스트로 평탄화하여 반환한다.
-
-    1단계 자식 블록만 처리한다(과도한 재귀 호출 회피).
-    """
+async def fetch_page_blocks(page_id: str) -> list[dict[str, Any]]:
+    """페이지의 1단계 자식 블록 원본 리스트를 반환한다."""
     headers = _build_headers()
     url = f"{NOTION_API_BASE}/blocks/{page_id}/children?page_size=100"
 
-    lines: list[str] = []
+    blocks: list[dict[str, Any]] = []
     async with httpx.AsyncClient(timeout=20.0) as client:
         cursor: str | None = None
         while True:
@@ -142,21 +139,92 @@ async def fetch_page_block_text(page_id: str) -> str:
             resp = await client.get(full_url, headers=headers)
             _raise_for_status(resp)
             data = resp.json()
-            for block in data.get("results", []):
-                line = _block_to_text(block)
-                if line:
-                    lines.append(line)
+            blocks.extend(data.get("results", []))
             if data.get("has_more"):
                 cursor = data.get("next_cursor")
                 if not cursor:
                     break
             else:
                 break
+    return blocks
 
+
+def blocks_to_text(blocks: list[dict[str, Any]]) -> str:
+    """블록 리스트를 평문 텍스트로 평탄화한다 (`_MAX_BODY_CHARS` 상한 적용)."""
+    lines = [line for line in (_block_to_text(b) for b in blocks) if line]
     text = "\n".join(lines).strip()
     if len(text) > _MAX_BODY_CHARS:
         text = text[:_MAX_BODY_CHARS]
     return text
+
+
+# "본깨적" 표준 섹션 명칭 (h2 heading과 매칭).
+# key: 정규화된(공백 제거) heading 텍스트, value: 동의어 목록.
+_BONKKAEJEOK_SECTIONS: dict[str, tuple[str, ...]] = {
+    "본것": ("본것",),
+    "깨달은것": ("깨달은것",),
+    "적용할것": ("적용할것",),
+}
+_BONKKAEJEOK_DISPLAY: dict[str, str] = {
+    "본것": "본 것",
+    "깨달은것": "깨달은 것",
+    "적용할것": "적용할 것",
+}
+
+
+def _normalize_heading(text: str) -> str:
+    return text.replace(" ", "").strip()
+
+
+def extract_bonkkaejeok_sections(blocks: list[dict[str, Any]]) -> dict[str, str]:
+    """페이지의 `heading_2` 기준으로 "본 것 / 깨달은 것 / 적용할 것" 세션 텍스트를 추출한다.
+
+    - 다음 `heading_2`가 나타나면 세션 종료.
+    - 공백 차이는 무시하여 "본것" 도 인식.
+    - 각 세션 내 텍스트는 `_MAX_BODY_CHARS`로 제한.
+
+    Returns:
+        {"본것": "...", "깨달은것": "...", "적용할것": "..."} 형태.
+        실제 세션이 비었던 경우 빈 문자열.
+    """
+    result: dict[str, list[str]] = {key: [] for key in _BONKKAEJEOK_SECTIONS}
+    current_key: str | None = None
+    for block in blocks:
+        btype = block.get("type", "")
+        if btype == "heading_2":
+            payload = block.get(btype, {}) or {}
+            heading_text = _rich_text_plain(payload.get("rich_text")).strip()
+            normalized = _normalize_heading(heading_text)
+            matched: str | None = None
+            for key, aliases in _BONKKAEJEOK_SECTIONS.items():
+                if normalized in aliases:
+                    matched = key
+                    break
+            current_key = matched
+            continue
+        if current_key:
+            line = _block_to_text(block)
+            if line:
+                result[current_key].append(line)
+
+    out: dict[str, str] = {}
+    for key, lines in result.items():
+        text = "\n".join(lines).strip()
+        if len(text) > _MAX_BODY_CHARS:
+            text = text[:_MAX_BODY_CHARS]
+        out[key] = text
+    return out
+
+
+def extract_seen_section_text(blocks: list[dict[str, Any]]) -> str:
+    """(하위 호환) "본 것" 세션 텍스트만 반환."""
+    return extract_bonkkaejeok_sections(blocks).get("본것", "")
+
+
+async def fetch_page_block_text(page_id: str) -> str:
+    """페이지 본문 전체를 평문 텍스트로 반환한다 (하위 호환)."""
+    blocks = await fetch_page_blocks(page_id)
+    return blocks_to_text(blocks)
 
 
 # ──────────────────────────────────────────────
@@ -252,18 +320,37 @@ def extract_title(page: dict[str, Any]) -> str:
     return ""
 
 
-def build_summary_input(page: dict[str, Any], body_text: str) -> tuple[str, bool]:
+def build_summary_input(
+    page: dict[str, Any],
+    body_text: str,
+    seen_text: str = "",
+    sections: dict[str, str] | None = None,
+) -> tuple[str, bool]:
     """LLM 요약 입력 텍스트를 구성한다.
+
+    Args:
+        page: Notion 페이지 객체.
+        body_text: 페이지 전체 본문 텍스트(보조 자료).
+        seen_text: (하위 호환) "본 것" 세션 단독 입력. `sections` 가 주어지면 무시.
+        sections: {"본것": "...", "깨달은것": "...", "적용할것": "..."} 형태의 본깨적 세션.
+            하나라도 내용이 있으면 이를 요약의 주재로 삼고 강조한다.
 
     Returns:
         (input_text, used_fallback)
-        used_fallback: 본문이 비어 속성 컨텍스트만으로 구성한 경우 True.
+        used_fallback: 본깨적 세션과 본문이 모두 비어 속성 컨텍스트만으로
+            구성한 경우 True.
     """
     title = extract_title(page)
     meta = extract_meta(page)
     props = page.get("properties", {}) or {}
     memo = _rich_text_plain((props.get("메모") or {}).get("rich_text"))
     note = _rich_text_plain((props.get("비고") or {}).get("rich_text"))
+
+    # 하위 호환: sections 가 없을 때 seen_text 를 "본것"으로 간주
+    if sections is None:
+        sections = {"본것": seen_text} if seen_text else {}
+    sections = {k: (v or "").strip() for k, v in sections.items()}
+    has_any_section = any(sections.get(k) for k in _BONKKAEJEOK_SECTIONS)
 
     parts: list[str] = []
     parts.append(f"# 도서명: {title or '(제목 없음)'}")
@@ -287,7 +374,20 @@ def build_summary_input(page: dict[str, Any], body_text: str) -> tuple[str, bool
         parts.append(f"\n## 비고\n{note}")
 
     used_fallback = False
-    if body_text:
+    if has_any_section:
+        parts.append(
+            "\n## ⭐ 본깨적 논트 (독자가 책을 읽으며 직접 정리한 핵심 내용)\n"
+            "→ 이 섹션이 요약의 **주재**이다. '본 것 → 깨달은 것 → 적용할 것'의 흐름이 드러나도록 요약하라."
+        )
+        for key in ("본것", "깨달은것", "적용할것"):
+            value = sections.get(key)
+            if value:
+                parts.append(f"\n### {_BONKKAEJEOK_DISPLAY[key]}\n{value}")
+        if body_text:
+            parts.append(
+                "\n## (참고) 전체 페이지 본문 — 보조 자료\n" + body_text
+            )
+    elif body_text:
         parts.append("\n## 본문\n" + body_text)
     else:
         used_fallback = True

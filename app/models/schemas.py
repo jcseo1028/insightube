@@ -169,6 +169,31 @@ class ReadingPageMeta(BaseModel):
     end_date: str = ""
 
 
+class ReadingBonkkaejeokSummary(BaseModel):
+    """본깨적(본 것 / 깨달은 것 / 적용할 것) 구조의 독서 요약.
+
+    AI 출력 스키마이자 팝업에 표시될 접속점.
+    """
+
+    one_line: str = Field(..., description="책의 핵심을 관통하는 한 문장 요약")
+    seen: list[str] = Field(
+        default_factory=list,
+        description="책에서 직접 본/관찰한 사실·인용·핵심 표현",
+    )
+    realized: list[str] = Field(
+        default_factory=list,
+        description="책을 통해 깨달은 점·통찰·생각의 전환",
+    )
+    applied: list[str] = Field(
+        default_factory=list,
+        description="일상·업무·행동에 적용할 수 있는 구체적 실천",
+    )
+    keywords: list[str] = Field(
+        default_factory=list,
+        description="기억 환기용 핵심 키워드",
+    )
+
+
 class ReadingSummaryData(BaseModel):
     """오늘의 독서 요약 응답 데이터."""
 
@@ -176,7 +201,7 @@ class ReadingSummaryData(BaseModel):
     title: str
     notion_url: str
     meta: ReadingPageMeta
-    summary: SummaryResult
+    summary: ReadingBonkkaejeokSummary
     used_fallback: bool = False
 
 

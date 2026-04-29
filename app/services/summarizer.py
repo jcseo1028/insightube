@@ -11,7 +11,12 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import get_settings, LLMProvider
-from app.models.schemas import DetailLevel, SummarizeOptions, SummaryResult
+from app.models.schemas import (
+    DetailLevel,
+    ReadingBonkkaejeokSummary,
+    SummarizeOptions,
+    SummaryResult,
+)
 from app.models.exceptions import SummarizationError
 
 logger = logging.getLogger(__name__)
@@ -277,3 +282,83 @@ async def _summarize_long(
         }
     )
     return result
+
+
+# ──────────────────────────────────────────────
+# 독서 전용 요약 (본깨적 3섹션 구조)
+# ──────────────────────────────────────────────
+
+
+_reading_output_parser = PydanticOutputParser(pydantic_object=ReadingBonkkaejeokSummary)
+
+
+_READING_SYSTEM_PROMPT = (
+    "당신은 독서 메모 정리를 돕는 큐레이터입니다. "
+    "사용자가 책을 읽으며 직접 정리한 '본깨적(본 것 / 깨달은 것 / 적용할 것)' 노트를 토대로, "
+    "나중에 사용자가 책 내용을 빠르게 환기할 수 있도록 구조화된 요약을 작성합니다.\n\n"
+    "{format_instructions}"
+)
+
+
+_READING_HUMAN_PROMPT = (
+    "다음은 사용자의 독서 노트입니다. 본깨적 섹션이 비어 있다면 본문을 활용해 추정하되, "
+    "사용자가 직접 작성한 본깨적 섹션이 있다면 **반드시 그 내용을 우선시**해 요약하세요.\n\n"
+    "## 작성 규칙\n"
+    "1. one_line: 책 전체를 관통하는 한 문장 (2~3 문장 이내, 한국어)\n"
+    "2. seen: 책에서 본 사실·핵심 인용·핵심 표현을 {max_items}개 이내. "
+    "구체적인 표현/예문/수치 위주로 정리\n"
+    "3. realized: 책을 통해 깨달은 통찰·생각의 전환을 {max_items}개 이내. "
+    "단순 사실 나열이 아닌 '왜 중요한가'를 드러내는 형태로 작성\n"
+    "4. applied: 일상/업무/행동에 적용할 구체적 실천 항목을 {max_items}개 이내. "
+    "동사로 시작하고 즉시 실행 가능한 형태로 작성 (예: '~하기', '~을 시작하기')\n"
+    "5. keywords: 나중에 책을 떠올릴 키워드 {max_keywords}개 (해시태그 형태가 아닌 단어/짧은 구)\n"
+    "6. 모든 결과는 한국어로 작성\n"
+    "7. 각 항목은 한 줄로 간결하게, 단 의미가 명확하도록 충분히 구체적으로\n\n"
+    "## 독서 노트\n"
+    "{notes}"
+)
+
+
+_reading_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", _READING_SYSTEM_PROMPT),
+        ("human", _READING_HUMAN_PROMPT),
+    ]
+)
+
+
+async def summarize_reading(
+    notes: str,
+    *,
+    max_items: int = 5,
+    max_keywords: int = 5,
+) -> ReadingBonkkaejeokSummary:
+    """독서 노트(본깨적 + 메타)를 본깨적 3섹션 구조로 요약한다.
+
+    Args:
+        notes: `notion.build_summary_input`로 만든 입력 텍스트.
+        max_items: seen/realized/applied 각 섹션의 최대 항목 수.
+        max_keywords: keywords 최대 항목 수.
+
+    Returns:
+        ReadingBonkkaejeokSummary.
+
+    Raises:
+        SummarizationError
+    """
+    try:
+        llm = _create_llm()
+        chain = _reading_prompt | llm | _reading_output_parser
+        result = await chain.ainvoke(
+            {
+                "notes": notes,
+                "max_items": max_items,
+                "max_keywords": max_keywords,
+                "format_instructions": _reading_output_parser.get_format_instructions(),
+            }
+        )
+        return result
+    except SummarizationError:
+        raise
+    except Exception as e:
+        raise SummarizationError(f"독서 요약 처리 중 오류가 발생했습니다: {e}")

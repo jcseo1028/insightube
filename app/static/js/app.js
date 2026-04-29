@@ -35,6 +35,6 @@ function isYouTubeUrl(url) {
  * 팝업 차단 회피를 위해 사용자 클릭 핸들러 내에서 직접 호출되어야 한다.
  */
 function openReadingToday() {
-    const features = "width=720,height=820,resizable=yes,scrollbars=yes";
+    const features = "width=1080,height=900,resizable=yes,scrollbars=yes";
     window.open("/reading/today", "insightube_reading", features);
 }

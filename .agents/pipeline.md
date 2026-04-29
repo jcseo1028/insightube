@@ -41,15 +41,16 @@
 - `GET /api/daily-log/recent?days=N` returns date-grouped summaries.
 
 ## Reading (Notion) Flow
-- 메인 화면의 “오늘의 독서 내용” 버튼 클릭 → `window.open('/reading/today', ...)` (새 팝업 창).
+- 메인 화면의 “오늘의 독서 내용” 버튼 클릭 → `window.open('/reading/today', ...)` (새 팝업 창, 1080×900).
 - 팝업 로드 후 `fetch('/api/reading/today-summary')` 호출.
 - 서버:
   1. `fetch_completed_pages()` — Notion DB query (`읽기 종료` date `is_not_empty`).
   2. `pick_random_completed()` — 랜덤 1건 선택. 비어 있으면 `NoCompletedPagesError`.
-  3. `fetch_page_block_text()` — 1단계 자식 블록 평탄화.
-  4. `build_summary_input()` — 속성 컨텍스트 + 말단 텍스트 결합 (비는 경우 속성만, `used_fallback=True`).
-  5. `summarize_transcript()` — `DetailLevel.NORMAL`로 고정 요약 수행.
-  6. `ReadingSummaryResponse` JSON 반환.
+  3. `fetch_page_blocks()` + `blocks_to_text()` — 1단계 자식 블록 평탄화.
+  4. `extract_bonkkaejeok_sections()` — `heading_2` 기준으로 "본 것 / 깨달은 것 / 적용할 것" 세션 추출.
+  5. `build_summary_input(page, body_text, sections=...)` — 속성 컨텍스트 + 본깨적 강조 + 전체 본문(보조)로 LLM 입력 구성. 모두 비면 `used_fallback=True`.
+  6. `summarize_reading()` — 본깨적 분류 전용 프롬프트 + `PydanticOutputParser`로 `ReadingBonkkaejeokSummary` 반환.
+  7. `ReadingSummaryResponse` JSON 반환.
 - 오류 매핑:
   - `NoCompletedPagesError` → 404 / `NO_COMPLETED_PAGES`
   - `NotionAuthError` → 502 / `NOTION_AUTH_ERROR`
