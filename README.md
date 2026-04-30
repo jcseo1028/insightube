@@ -90,6 +90,27 @@ Windows 로그온 시 서버를 자동 실행하려면:
 
 서버는 콘솔 창 없이 백그라운드에서 실행됩니다 (`wscript.exe` → `pythonw.exe` → uvicorn). Crash 시 자동 재시작되며, 60초 이내 연속 10회 실패 시 중단됩니다. 로그는 `logs/server.log`에 기록됩니다.
 
+### 토큰 갱신 후 서버 재시작
+
+`GITHUB_TOKEN`(또는 `OPENAI_API_KEY`, `NOTION_API_KEY` 등) 값을 `.env`에서 변경한 경우, 실행 중인 uvicorn 자식 프로세스만 종료하면 launcher(`run_server.py`)가 자동으로 새 프로세스를 띄우면서 변경된 `.env`를 다시 로드합니다. launcher 자체(`pythonw.exe run_server.py`)는 종료할 필요가 없습니다.
+
+PowerShell 예시:
+
+```powershell
+# 1) 8000 포트를 점유 중인 uvicorn 자식 프로세스 ID 확인
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+  Where-Object { $_.CommandLine -match 'uvicorn' } |
+  Select-Object ProcessId, CommandLine
+
+# 2) 자식 uvicorn 프로세스만 종료 (launcher PID 는 종료하지 않음)
+Stop-Process -Id <child-pid> -Force
+
+# 3) 5~10초 후 헬스체크
+(Invoke-WebRequest -Uri "http://127.0.0.1:8000/" -UseBasicParsing -TimeoutSec 5).StatusCode
+```
+
+작업 스케줄러를 사용하지 않고 직접 실행한 경우에는 해당 uvicorn 프로세스를 종료한 뒤 `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` 으로 다시 실행하면 됩니다.
+
 ## 요약 옵션
 
 여기서의 옵션은 **YouTube 요약**에 적용됩니다. 오늘의 독서 팝업은 원적(본깨적) 구조로 고정되어 있어 별도의 옵션이 없습니다.
