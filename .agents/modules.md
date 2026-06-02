@@ -48,6 +48,7 @@
 - Builds prompts based on detail level and output schema.
 - Chooses short-text or long-text summarization path.
 - Uses LangChain output parsing into `SummaryResult`.
+- Detects Azure/OpenAI content-filter errors and retries once after masking policy-sensitive self-harm terms in transcript text.
 - `summarize_reading()` — 독서 전용 요약 진입점. `본깨적` 3섹션(본 것 / 깨달은 것 / 적용할 것) 구조로 `ReadingBonkkaejeokSummary` 를 반환.
 
 ## `app/services/history.py`

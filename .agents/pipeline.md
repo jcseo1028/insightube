@@ -68,6 +68,8 @@
 - Short transcript: single structured summary call.
 - Long transcript: split into chunks, summarize chunks, then reduce to final structured result.
 - GitHub Models requests are concurrency-limited in the map phase.
+- If provider returns `content_filter`/`ResponsibleAIPolicyViolation`, transcript is sanitized by masking policy-sensitive self-harm terms and retried once.
+- If retry is still filtered (or no maskable terms exist), service raises `SummarizationError` with a policy-blocked message.
 
 ## Error Flow
 - `InvalidURLError` -> 400

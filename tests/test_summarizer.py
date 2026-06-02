@@ -60,6 +60,48 @@ class TestSummarizeTranscript:
         assert 1 <= len(mock_summary_result.key_points) <= 7
         assert 1 <= len(mock_summary_result.keywords) <= 5
 
+    @pytest.mark.asyncio
+    async def test_content_filter_retry_with_sanitized_transcript(self) -> None:
+        """콘텐츠 필터 오류 시 민감 표현 마스킹 후 1회 재시도한다."""
+        expected = SummaryResult(
+            one_line="민감한 주제를 다루는 영상의 핵심을 요약했습니다.",
+            key_points=["핵심 주제", "주요 맥락"],
+            keywords=["핵심", "맥락"],
+        )
+
+        with patch("app.services.summarizer._create_llm") as mock_llm_factory:
+            mock_llm = MagicMock()
+            mock_llm_factory.return_value = mock_llm
+
+            with patch("app.services.summarizer._summarize_short", new_callable=AsyncMock) as mock_short:
+                mock_short.side_effect = [
+                    Exception("Error code: 400 content_filter"),
+                    expected,
+                ]
+
+                result = await summarize_transcript("자해 충동이 들 때 대처법")
+
+                assert result == expected
+                assert mock_short.await_count == 2
+                retried_transcript = mock_short.await_args_list[1].args[1]
+                assert "[민감 내용]" in retried_transcript
+
+    @pytest.mark.asyncio
+    async def test_content_filter_without_maskable_term_raises_summarization_error(self) -> None:
+        """마스킹할 표현이 없으면 정책 차단 메시지로 종료한다."""
+        with patch("app.services.summarizer._create_llm") as mock_llm_factory:
+            mock_llm = MagicMock()
+            mock_llm_factory.return_value = mock_llm
+
+            with patch("app.services.summarizer._summarize_short", new_callable=AsyncMock) as mock_short:
+                mock_short.side_effect = Exception("Error code: 400 content_filter")
+
+                with pytest.raises(SummarizationError) as exc_info:
+                    await summarize_transcript("안녕하세요 반갑습니다")
+
+                assert "콘텐츠 정책 필터" in str(exc_info.value)
+                assert mock_short.await_count == 1
+
 
 class TestSummarizeAPI:
     """요약 API 엔드포인트 테스트."""

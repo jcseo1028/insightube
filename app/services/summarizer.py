@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -173,6 +174,30 @@ _MAP_PROMPTS: dict[DetailLevel, ChatPromptTemplate] = {
 _TOKEN_THRESHOLD = 4000
 _CHARS_PER_TOKEN = 4  # 대략적인 한국어/영어 혼합 기준
 
+_POLICY_SENSITIVE_PATTERNS = [
+    r"자해",
+    r"자살",
+    r"죽고\s*싶",
+    r"극단적\s*선택",
+    r"self\s*-?\s*harm",
+    r"suicid(?:e|al)",
+    r"kill\s+myself",
+]
+
+
+def _is_content_filter_error(error: Exception) -> bool:
+    """예외 메시지에 콘텐츠 필터 차단 신호가 있는지 확인한다."""
+    message = str(error).lower()
+    return "content_filter" in message or "responsibleaipolicyviolation" in message
+
+
+def _sanitize_transcript_for_policy(transcript: str) -> str:
+    """정책 필터 민감 표현을 최소 마스킹해 재요약 성공률을 높인다."""
+    sanitized = transcript
+    for pattern in _POLICY_SENSITIVE_PATTERNS:
+        sanitized = re.sub(pattern, "[민감 내용]", sanitized, flags=re.IGNORECASE)
+    return sanitized
+
 
 async def summarize_transcript(
     transcript: str,
@@ -195,12 +220,36 @@ async def summarize_transcript(
 
     try:
         llm = _create_llm()
-        estimated_tokens = len(transcript) // _CHARS_PER_TOKEN
 
-        if estimated_tokens <= _TOKEN_THRESHOLD:
-            return await _summarize_short(llm, transcript, options)
-        else:
-            return await _summarize_long(llm, transcript, options)
+        async def _summarize_by_length(input_text: str) -> SummaryResult:
+            estimated_tokens = len(input_text) // _CHARS_PER_TOKEN
+            if estimated_tokens <= _TOKEN_THRESHOLD:
+                return await _summarize_short(llm, input_text, options)
+            return await _summarize_long(llm, input_text, options)
+
+        try:
+            return await _summarize_by_length(transcript)
+        except Exception as e:
+            if not _is_content_filter_error(e):
+                raise
+
+            sanitized = _sanitize_transcript_for_policy(transcript)
+            if sanitized == transcript:
+                raise SummarizationError(
+                    "콘텐츠 정책 필터에 의해 요약이 차단되었습니다. "
+                    "다른 영상으로 시도해 주세요."
+                ) from e
+
+            logger.warning("콘텐츠 정책 필터 감지: 민감 표현 마스킹 후 1회 재시도")
+            try:
+                return await _summarize_by_length(sanitized)
+            except Exception as retry_error:
+                if _is_content_filter_error(retry_error):
+                    raise SummarizationError(
+                        "콘텐츠 정책 필터에 의해 요약이 차단되었습니다. "
+                        "다른 영상으로 시도해 주세요."
+                    ) from retry_error
+                raise
 
     except SummarizationError:
         raise
