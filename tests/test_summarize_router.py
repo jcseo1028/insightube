@@ -2,8 +2,18 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from app.models.exceptions import SummarizationError
 from app.models.schemas import DetailLevel
-from app.routers.summarize import _parse_options_from_form
+from app.models.schemas import SummarizeOptions, SummaryResult
+from app.routers.summarize import (
+    _parse_options_from_form,
+    _policy_block_counts,
+    _summarize_with_policy_fallback,
+)
 
 
 class TestParseOptionsFromForm:
@@ -61,3 +71,52 @@ class TestParseOptionsFromForm:
         assert enabled.include_transcript is True
         assert disabled.include_transcript is False
         assert missing.include_transcript is False
+
+
+class TestPolicyFallback:
+    """정책 차단 반복 시 brief 폴백 동작 테스트."""
+
+    @pytest.mark.asyncio
+    async def test_repeated_policy_block_retries_with_brief(self) -> None:
+        video_id = "video123"
+        _policy_block_counts.clear()
+        _policy_block_counts[video_id] = 1
+
+        expected = SummaryResult(
+            one_line="간단 요약 결과",
+            key_points=["포인트"],
+            keywords=["키워드"],
+        )
+        options = SummarizeOptions(detail_level=DetailLevel.DETAILED)
+
+        with patch("app.routers.summarize.summarize_transcript", new_callable=AsyncMock) as mock_summarize:
+            mock_summarize.side_effect = [
+                SummarizationError("콘텐츠 정책 필터에 의해 요약이 차단되었습니다."),
+                expected,
+            ]
+
+            summary, used_options, used_fallback = await _summarize_with_policy_fallback(
+                video_id,
+                "테스트 자막",
+                options,
+            )
+
+            assert summary == expected
+            assert used_fallback is True
+            assert used_options.detail_level == DetailLevel.BRIEF
+            assert mock_summarize.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_first_policy_block_does_not_retry(self) -> None:
+        video_id = "video456"
+        _policy_block_counts.clear()
+        options = SummarizeOptions(detail_level=DetailLevel.DETAILED)
+
+        with patch("app.routers.summarize.summarize_transcript", new_callable=AsyncMock) as mock_summarize:
+            mock_summarize.side_effect = SummarizationError("콘텐츠 정책 필터에 의해 요약이 차단되었습니다.")
+
+            with pytest.raises(SummarizationError):
+                await _summarize_with_policy_fallback(video_id, "테스트 자막", options)
+
+            assert mock_summarize.await_count == 1
+            assert _policy_block_counts[video_id] == 1

@@ -130,3 +130,14 @@ class TestSummarizeAPI:
         response = client.get("/")
         assert response.status_code == 200
         assert "InSighTube" in response.text
+
+    def test_htmx_invalid_url_renders_error_html(self, client) -> None:
+        """HTMX 요청 에러는 화면 교체 가능한 HTML(200)로 반환한다."""
+        response = client.post(
+            "/summarize",
+            data={"url": "https://www.example.com/not-youtube"},
+            headers={"HX-Request": "true"},
+        )
+
+        assert response.status_code == 200
+        assert "URL 형식을 확인해 주세요" in response.text

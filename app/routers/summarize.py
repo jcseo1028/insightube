@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from app.models.exceptions import SummarizationError
 from app.models.schemas import (
     DetailLevel,
     SummarizeData,
@@ -29,6 +30,53 @@ from app.config import get_settings
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
+
+_POLICY_BLOCK_RETRY_THRESHOLD = 2
+_POLICY_BLOCK_MESSAGE_SNIPPET = "콘텐츠 정책 필터"
+_policy_block_counts: dict[str, int] = {}
+
+
+def _is_policy_block_error(exc: SummarizationError) -> bool:
+    """정책 필터 차단 계열 SummarizationError인지 판별한다."""
+    return _POLICY_BLOCK_MESSAGE_SNIPPET in exc.message
+
+
+async def _summarize_with_policy_fallback(
+    video_id: str,
+    transcript: str,
+    options: SummarizeOptions,
+) -> tuple[SummaryResult, SummarizeOptions, bool]:
+    """정책 차단 반복 시 간단 요약으로 한 번 더 폴백한다."""
+    try:
+        summary = await summarize_transcript(transcript, options)
+        _policy_block_counts.pop(video_id, None)
+        return summary, options, False
+    except SummarizationError as exc:
+        if not _is_policy_block_error(exc):
+            raise
+
+        _policy_block_counts[video_id] = _policy_block_counts.get(video_id, 0) + 1
+        should_retry_brief = (
+            _policy_block_counts[video_id] >= _POLICY_BLOCK_RETRY_THRESHOLD
+            and options.detail_level != DetailLevel.BRIEF
+        )
+        if not should_retry_brief:
+            raise
+
+        fallback_options = SummarizeOptions(
+            detail_level=DetailLevel.BRIEF,
+            max_key_points=options.max_key_points,
+            max_keywords=options.max_keywords,
+            include_transcript=options.include_transcript,
+        )
+        logger.warning(
+            "[SUMMARIZE] 정책 차단 반복(video_id=%s, count=%d) -> brief 폴백 재시도",
+            video_id,
+            _policy_block_counts[video_id],
+        )
+        summary = await summarize_transcript(transcript, fallback_options)
+        _policy_block_counts.pop(video_id, None)
+        return summary, fallback_options, True
 
 
 @router.post("/api/summarize", response_model=SummarizeResponse)
@@ -63,7 +111,11 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
         transcript = transcript[:max_len]
 
     # 4. AI 요약 (옵션 전달)
-    summary: SummaryResult = await summarize_transcript(transcript, body.options)
+    summary, used_options, _used_brief_fallback = await _summarize_with_policy_fallback(
+        video_id,
+        transcript,
+        body.options,
+    )
 
     # 5. 응답 구성
     data = SummarizeData(
@@ -75,7 +127,7 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
         if metadata
         else f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
         summary=summary,
-        transcript=transcript if body.options.include_transcript else "",
+        transcript=transcript if used_options.include_transcript else "",
     )
 
     elapsed = time.monotonic() - start
@@ -94,7 +146,7 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
             key_points=summary.key_points,
             keywords=summary.keywords,
             transcript=data.transcript,
-            detail_level=body.options.detail_level.value,
+            detail_level=used_options.detail_level.value,
         )
     except Exception:
         logger.warning("[API] 히스토리 저장 실패", exc_info=True)
@@ -106,7 +158,7 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
             title=data.title,
             channel=data.channel,
             one_line=summary.one_line,
-            detail_level=body.options.detail_level.value,
+            detail_level=used_options.detail_level.value,
         )
     except Exception:
         logger.warning("[API] Daily-log DB 저장 실패", exc_info=True)
@@ -114,7 +166,7 @@ async def api_summarize(body: SummarizeRequest) -> SummarizeResponse:
         video_id=video_id,
         title=data.title,
         channel=data.channel,
-        detail_level=body.options.detail_level.value,
+        detail_level=used_options.detail_level.value,
         elapsed=elapsed,
     )
 
@@ -195,7 +247,11 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
         transcript = transcript[:max_len]
 
     # 4. AI 요약 (옵션 전달)
-    summary: SummaryResult = await summarize_transcript(transcript, options)
+    summary, used_options, used_brief_fallback = await _summarize_with_policy_fallback(
+        video_id,
+        transcript,
+        options,
+    )
 
     elapsed = time.monotonic() - start
     logger.info("[HTMX] video_id=%s 요약 완료 | %.2fs", video_id, elapsed)
@@ -214,8 +270,8 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
             one_line=summary.one_line,
             key_points=summary.key_points,
             keywords=summary.keywords,
-            transcript=transcript if options.include_transcript else "",
-            detail_level=options.detail_level.value,
+            transcript=transcript if used_options.include_transcript else "",
+            detail_level=used_options.detail_level.value,
         )
     except Exception:
         logger.warning("[HTMX] 히스토리 저장 실패", exc_info=True)
@@ -227,7 +283,7 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
             title=metadata.title if metadata else "",
             channel=metadata.channel if metadata else "",
             one_line=summary.one_line,
-            detail_level=options.detail_level.value,
+            detail_level=used_options.detail_level.value,
         )
     except Exception:
         logger.warning("[HTMX] Daily-log DB 저장 실패", exc_info=True)
@@ -235,7 +291,7 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
         video_id=video_id,
         title=metadata.title if metadata else "",
         channel=metadata.channel if metadata else "",
-        detail_level=options.detail_level.value,
+        detail_level=used_options.detail_level.value,
         elapsed=elapsed,
     )
 
@@ -252,8 +308,9 @@ async def htmx_summarize(request: Request) -> HTMLResponse:
             if metadata
             else f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
             "summary": summary,
-            "transcript": transcript if options.include_transcript else "",
-            "options": options,
+            "transcript": transcript if used_options.include_transcript else "",
+            "options": used_options,
+            "used_brief_fallback": used_brief_fallback,
         },
     )
     response.headers["HX-Trigger"] = "historyUpdated"

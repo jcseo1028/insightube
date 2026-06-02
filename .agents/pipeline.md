@@ -70,6 +70,7 @@
 - GitHub Models requests are concurrency-limited in the map phase.
 - If provider returns `content_filter`/`ResponsibleAIPolicyViolation`, transcript is sanitized by masking policy-sensitive self-harm terms and retried once.
 - If retry is still filtered (or no maskable terms exist), service raises `SummarizationError` with a policy-blocked message.
+- Router tracks repeated policy-blocked attempts per `video_id`; from the second blocked attempt, it retries once with `brief` detail level.
 
 ## Error Flow
 - `InvalidURLError` -> 400
@@ -77,6 +78,7 @@
 - `SummarizationError` -> 500
 - Exception handlers return HTML fragments when the request includes `HX-Request`, and JSON error payloads otherwise.
 - All errors are logged at the exception handler boundary with path and message.
+- HTMX error fragments are returned with status 200 to guarantee swap into `#summary-result`.
 
 ## Observability
 - Summarize requests log: request start, video_id extraction, completion with elapsed time.

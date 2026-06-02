@@ -1,5 +1,11 @@
 <!-- 요약 결과 HTMX 파셜 -->
 <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-md overflow-hidden">
+    {% if used_brief_fallback %}
+    <div class="mx-6 mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm">
+        콘텐츠 정책 제한으로 상세/보통 요약이 어려워 <strong>간단 요약</strong>으로 자동 전환해 결과를 표시했습니다.
+    </div>
+    {% endif %}
+
     <!-- 영상 정보 헤더 -->
     <div class="flex flex-col sm:flex-row gap-4 p-6 border-b border-gray-100 dark:border-gray-700">
         {% if thumbnail_url %}

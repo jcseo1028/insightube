@@ -44,6 +44,16 @@
 - Invalid `max_keywords` falls back to `5`; parsed values are clamped to 3..10.
 - `include_transcript` is true only when the form value is `on`.
 
+## HTMX Error Rendering Contract
+
+- For `HX-Request` summarize flows, domain errors return HTML fragments with status `200` so the result panel is always replaced with a visible message block.
+- JSON API (`/api/summarize`) error status codes remain unchanged (`400/404/500`).
+
+## Policy-Blocked Retry Contract
+
+- On repeated policy-blocked attempts for the same `video_id`, summarize router retries once with `detail_level=brief`.
+- If fallback succeeds, persisted `detail_level` is `brief`.
+
 ## Response Models
 
 ### `SummaryResult`

@@ -8,6 +8,7 @@
 - Serves the index page.
 - Defines exception handlers for URL, transcript, and summarization failures.
 - Logs error outcomes at each exception handler and writes failure events to daily log files.
+- For HTMX summarize requests, returns renderable HTML error blocks with status `200` so messages are visible in the result area.
 
 ## `app/config.py`
 
@@ -25,6 +26,7 @@
 - Saves lightweight record to daily_log DB and writes file log events (request, success, failure).
 - HTMX response triggers `historyUpdated` event for side panel refresh.
 - Logs request start, video_id, and completion with elapsed time for both API and HTMX paths.
+- Tracks policy-blocked failures per `video_id` in memory and retries once with `brief` detail level when the same video is blocked repeatedly.
 
 ## `app/routers/history.py`
 
