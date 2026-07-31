@@ -13,8 +13,8 @@
 ## `app/config.py`
 
 - Loads `.env`.
-- Detects current LLM provider from `GITHUB_TOKEN` or `OPENAI_API_KEY`.
-- Produces `Settings` with model, base URL, transcript length limit, summary language, and Notion reading DB settings (`NOTION_API_KEY`, `NOTION_READING_DB_ID`, `NOTION_READING_DONE_PROPERTY`).
+- Detects current LLM provider from `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GITHUB_TOKEN` (priority in that order; GitHub is deprecated).
+- Produces `Settings` with model (provider-specific default), base URL, transcript length limit, summary language, and Notion reading DB settings (`NOTION_API_KEY`, `NOTION_READING_DB_ID`, `NOTION_READING_DONE_PROPERTY`).
 
 ## `app/routers/summarize.py`
 
@@ -72,6 +72,7 @@
 - `get_recent_days()` — returns date-grouped summaries for the last N days.
 - File logging via `TimedRotatingFileHandler` to `logs/daily/`.
 - `log_request()`, `log_success()`, `log_failure()` — write structured text events.
+- `log_reading_request()`, `log_reading_success()`, `log_reading_failure()` — write structured text events for the 오늘의 독서 내용 flow (파일 로그 전용, DB 저장은 하지 않음).
 
 ## `app/routers/daily_log.py`
 
@@ -84,6 +85,7 @@
 - Owns the today's reading endpoints (Notion 독서 DB 기반).
 - `GET /reading/today` — popup page (server-rendered template).
 - `GET /api/reading/today-summary` — randomly picks one completed page from Notion DB and returns a 본깨적 summary (`ReadingBonkkaejeokSummary`).
+- 요청 시작 시 `daily_log.log_reading_request()`, 성공 시 `log_reading_success()`, 예외 시 `log_reading_failure()` 를 호출해 파일 daily log에 기록한다.
 - Maps domain Notion exceptions (`NoCompletedPagesError`, `NotionAuthError`, `NotionNotSharedError`, `NotionRateLimitError`, `NotionSchemaMismatchError`) to JSON error payloads.
 
 ## `app/services/notion.py`

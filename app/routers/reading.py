@@ -17,6 +17,7 @@ from app.models.schemas import (
     ReadingSummaryData,
     ReadingSummaryResponse,
 )
+from app.services import daily_log as daily_log_service
 from app.services import notion as notion_service
 from app.services.summarizer import summarize_reading
 
@@ -62,10 +63,12 @@ def _error_response(code: str, message: str, status: int = 500) -> JSONResponse:
 async def api_today_reading_summary() -> JSONResponse:
     """읽기 완료 페이지 중 1건을 랜덤 선택하여 요약 결과를 반환한다."""
     started = time.monotonic()
+    daily_log_service.log_reading_request()
+    page_id: str = ""
     try:
         pages = await notion_service.fetch_completed_pages()
         page = notion_service.pick_random_completed(pages)
-        page_id: str = page.get("id", "")
+        page_id = page.get("id", "")
 
         blocks = await notion_service.fetch_page_blocks(page_id)
         body_text = notion_service.blocks_to_text(blocks)
@@ -91,6 +94,12 @@ async def api_today_reading_summary() -> JSONResponse:
             used_fallback,
             elapsed,
         )
+        daily_log_service.log_reading_success(
+            page_id=page_id,
+            title=title or "(제목 없음)",
+            used_fallback=used_fallback,
+            elapsed=elapsed,
+        )
 
         data = ReadingSummaryData(
             page_id=page_id,
@@ -106,12 +115,29 @@ async def api_today_reading_summary() -> JSONResponse:
 
     except NoCompletedPagesError as exc:
         logger.info("[Reading] %s", exc.message)
+        daily_log_service.log_reading_failure(
+            "READING_FAIL_EMPTY",
+            error_msg=exc.message,
+            elapsed=time.monotonic() - started,
+        )
         return _error_response(exc.code, exc.message, status=404)
     except NotionError as exc:
         logger.warning("[Reading] %s | %s", exc.code, exc.message)
+        daily_log_service.log_reading_failure(
+            "READING_FAIL_NOTION",
+            page_id=page_id or None,
+            error_msg=f"{exc.code}: {exc.message}",
+            elapsed=time.monotonic() - started,
+        )
         return _error_response(exc.code, exc.message, status=502)
     except Exception as exc:  # pragma: no cover - 방어적 처리
         logger.exception("[Reading] 예상치 못한 오류")
+        daily_log_service.log_reading_failure(
+            "READING_FAIL_UNEXPECTED",
+            page_id=page_id or None,
+            error_msg=str(exc),
+            elapsed=time.monotonic() - started,
+        )
         return _error_response(
             "UNEXPECTED_ERROR",
             f"예상치 못한 오류가 발생했습니다: {exc}",

@@ -38,14 +38,19 @@ copy .env.example .env       # Windows
 cp .env.example .env         # macOS/Linux
 ```
 
-`.env` 파일에서 다음 중 **하나**를 설정합니다:
+`.env` 파일에서 다음 중 **하나**를 설정합니다 (감지 우선순위: Anthropic → OpenAI → GitHub):
 
 ```env
-# 방법 1: GitHub Token (추천 — 별도 API 키 불필요)
-GITHUB_TOKEN=your-github-token-here
+# 방법 1 (권장): Anthropic API Key — https://console.anthropic.com/settings/keys
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+LLM_MODEL=claude-sonnet-4-5   # 생략 시 Anthropic 기본값 사용
 
 # 방법 2: OpenAI API Key
-OPENAI_API_KEY=your-openai-api-key-here
+# OPENAI_API_KEY=your-openai-api-key-here
+# LLM_MODEL=gpt-4o-mini
+
+# 방법 3: GitHub Token — [DEPRECATED] GitHub Models는 2026-07-30 은퇴되었으므로 사용 불가.
+# GITHUB_TOKEN=your-github-token-here
 ```
 
 ### (선택) 오늘의 독서 내용 기능
@@ -94,7 +99,7 @@ Windows 로그온 시 서버를 자동 실행하려면:
 
 ### 토큰 갱신 후 서버 재시작
 
-`GITHUB_TOKEN`(또는 `OPENAI_API_KEY`, `NOTION_API_KEY` 등) 값을 `.env`에서 변경한 경우, 실행 중인 uvicorn 자식 프로세스만 종료하면 launcher(`run_server.py`)가 자동으로 새 프로세스를 띄우면서 변경된 `.env`를 다시 로드합니다. launcher 자체(`pythonw.exe run_server.py`)는 종료할 필요가 없습니다.
+`GITHUB_TOKEN`(또는 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `NOTION_API_KEY` 등) 값을 `.env`에서 변경한 경우, 실행 중인 uvicorn 자식 프로세스만 종료하면 launcher(`run_server.py`)가 자동으로 새 프로세스를 띄우면서 변경된 `.env`를 다시 로드합니다. launcher 자체(`pythonw.exe run_server.py`)는 종료할 필요가 없습니다.
 
 PowerShell 예시:
 

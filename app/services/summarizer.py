@@ -7,6 +7,7 @@ import logging
 import re
 
 from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -26,13 +27,25 @@ logger = logging.getLogger(__name__)
 _MAX_CONCURRENT_REQUESTS = 2
 
 
-def _create_llm() -> ChatOpenAI:
+def _create_llm() -> BaseChatModel:
     """설정에 따라 LLM 인스턴스를 생성한다.
 
     Returns:
-        ChatOpenAI 인스턴스.
+        BaseChatModel 인스턴스 (ChatOpenAI 또는 ChatAnthropic).
     """
     settings = get_settings()
+
+    if settings.llm_provider == LLMProvider.ANTHROPIC:
+        from langchain_anthropic import ChatAnthropic
+
+        return ChatAnthropic(
+            model=settings.llm_model,
+            api_key=settings.llm_api_key,
+            temperature=0.3,
+            timeout=60,
+            max_retries=5,
+            max_tokens=4096,
+        )
 
     kwargs: dict = {
         "model": settings.llm_model,

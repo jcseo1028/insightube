@@ -43,6 +43,7 @@
 ## Reading (Notion) Flow
 - 메인 화면의 “오늘의 독서 내용” 버튼 클릭 → `window.open('/reading/today', ...)` (새 팝업 창, 1080×900).
 - 팝업 로드 후 `fetch('/api/reading/today-summary')` 호출.
+- 요청 진입 시 `daily_log.log_reading_request()`를 호출해 파일 로그(`logs/daily/*.log`)에 `READING_REQ` 이벤트 기록. 성공 시 `READING_OK`, 실패 시 `READING_FAIL_*` 이벤트가 남는다 (DB `daily_log` 테이블에는 저장하지 않음).
 - 서버:
   1. `fetch_completed_pages()` — Notion DB query (`읽기 종료` date `is_not_empty`).
   2. `pick_random_completed()` — 랜덤 1건 선택. 비어 있으면 `NoCompletedPagesError`.

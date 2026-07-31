@@ -197,9 +197,10 @@
 
 ## Configuration Contract
 
-- One of these must be set:
-  - `GITHUB_TOKEN`
+- One of these must be set (detection priority: Anthropic → OpenAI → GitHub):
+  - `ANTHROPIC_API_KEY` (recommended)
   - `OPENAI_API_KEY`
+  - `GITHUB_TOKEN` (deprecated: GitHub Models retired 2026-07-30)
 - Optional settings:
   - `LLM_MODEL`
   - `MAX_TRANSCRIPT_LENGTH`

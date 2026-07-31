@@ -18,6 +18,7 @@ class LLMProvider(str, Enum):
 
     GITHUB = "github"
     OPENAI = "openai"
+    ANTHROPIC = "anthropic"
 
 
 @dataclass(frozen=True)
@@ -51,24 +52,29 @@ def _detect_provider() -> tuple[LLMProvider, str, str | None]:
         (provider, api_key, base_url) 튜플.
 
     Raises:
-        RuntimeError: GITHUB_TOKEN과 OPENAI_API_KEY 모두 설정되지 않은 경우.
+        RuntimeError: 지원하는 LLM API 키가 하나도 설정되지 않은 경우.
     """
-    github_token = os.getenv("GITHUB_TOKEN", "").strip()
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    github_token = os.getenv("GITHUB_TOKEN", "").strip()
+
+    if anthropic_key:
+        return LLMProvider.ANTHROPIC, anthropic_key, None
+
+    if openai_key:
+        return LLMProvider.OPENAI, openai_key, None
 
     if github_token:
+        # GitHub Models는 2026-07-30 은퇴. 자동 감지는 유지하되 동작은 보장하지 않음.
         return (
             LLMProvider.GITHUB,
             github_token,
             "https://models.inference.ai.azure.com",
         )
 
-    if openai_key:
-        return LLMProvider.OPENAI, openai_key, None
-
     raise RuntimeError(
         "LLM API 키가 설정되지 않았습니다. "
-        "GITHUB_TOKEN 또는 OPENAI_API_KEY 환경 변수를 설정해주세요."
+        "ANTHROPIC_API_KEY 또는 OPENAI_API_KEY 환경 변수를 설정해주세요."
     )
 
 
@@ -80,11 +86,17 @@ def get_settings() -> Settings:
     """
     provider, api_key, base_url = _detect_provider()
 
+    default_model = {
+        LLMProvider.OPENAI: "gpt-4o-mini",
+        LLMProvider.GITHUB: "gpt-4o-mini",
+        LLMProvider.ANTHROPIC: "claude-sonnet-4-5",
+    }[provider]
+
     return Settings(
         llm_provider=provider,
         llm_api_key=api_key,
         llm_base_url=base_url,
-        llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
+        llm_model=os.getenv("LLM_MODEL", default_model),
         max_transcript_length=int(os.getenv("MAX_TRANSCRIPT_LENGTH", "50000")),
         summary_language=os.getenv("SUMMARY_LANGUAGE", "ko"),
         notion_api_key=os.getenv("NOTION_API_KEY", "").strip(),

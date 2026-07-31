@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import logging.handlers
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
@@ -128,34 +127,46 @@ async def get_recent_days(days: int = 7) -> list[dict[str, Any]]:
 # ──────────────────────────────────────────────
 
 _file_logger: logging.Logger | None = None
+_current_log_date: str | None = None
 
 
 def _get_file_logger() -> logging.Logger:
-    """날짜별 파일 로거를 반환한다. 최초 호출 시 핸들러를 설정한다."""
-    global _file_logger
-    if _file_logger is not None:
+    """오늘(KST) 날짜 파일(`YYYY-MM-DD.log`)에 쓰는 로거를 반환한다. 날짜 변경 시 자동 전환."""
+    global _file_logger, _current_log_date
+
+    today = datetime.now(KST).strftime("%Y-%m-%d")
+
+    if _file_logger is not None and _current_log_date == today:
         return _file_logger
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
+    # 구버전 `daily.log` 잔존 이월: 오늘 파일이 없을 때만 rename.
+    legacy = LOG_DIR / "daily.log"
+    today_file = LOG_DIR / f"{today}.log"
+    if legacy.exists() and not today_file.exists():
+        try:
+            legacy.rename(today_file)
+        except OSError:
+            pass
+
     fl = logging.getLogger("daily_log_file")
     fl.setLevel(logging.INFO)
-    fl.propagate = False  # 콘솔 로거로 전파 방지
+    fl.propagate = False
 
-    handler = logging.handlers.TimedRotatingFileHandler(
-        filename=LOG_DIR / "daily.log",
-        when="midnight",
-        interval=1,
-        backupCount=0,  # 무제한 보존
+    for h in list(fl.handlers):
+        h.close()
+        fl.removeHandler(h)
+
+    handler = logging.FileHandler(
+        filename=today_file,
         encoding="utf-8",
-        atTime=None,
     )
-    handler.suffix = "%Y-%m-%d.log"
-    handler.namer = lambda name: str(LOG_DIR / name.split("daily.log.")[-1])
     handler.setFormatter(logging.Formatter("%(message)s"))
     fl.addHandler(handler)
 
     _file_logger = fl
+    _current_log_date = today
     return fl
 
 
@@ -203,6 +214,51 @@ def log_failure(
         parts.append(f"video_id={video_id}")
     if url:
         parts.append(f"url={url}")
+    if elapsed is not None:
+        parts.append(f"elapsed={elapsed:.2f}s")
+    if error_msg:
+        parts.append(error_msg)
+    fl.info(" | ".join(parts))
+
+
+# ──────────────────────────────────────────────
+# Reading (오늘의 독서 내용) 파일 로깅
+# ──────────────────────────────────────────────
+
+
+def log_reading_request() -> None:
+    """오늘의 독서 요청 시작 이벤트를 파일에 기록한다."""
+    fl = _get_file_logger()
+    fl.info("[%s] READING_REQ      | 오늘의 독서 요청", _now_str())
+
+
+def log_reading_success(
+    *,
+    page_id: str,
+    title: str,
+    used_fallback: bool,
+    elapsed: float,
+) -> None:
+    """오늘의 독서 요약 성공 이벤트를 파일에 기록한다."""
+    fl = _get_file_logger()
+    fl.info(
+        "[%s] READING_OK       | page_id=%s | title=%s | fallback=%s | elapsed=%.2fs",
+        _now_str(), page_id, title, used_fallback, elapsed,
+    )
+
+
+def log_reading_failure(
+    status: str,
+    *,
+    page_id: str | None = None,
+    error_msg: str = "",
+    elapsed: float | None = None,
+) -> None:
+    """오늘의 독서 요약 실패 이벤트를 파일에 기록한다."""
+    fl = _get_file_logger()
+    parts = [f"[{_now_str()}] {status:<16}"]
+    if page_id:
+        parts.append(f"page_id={page_id}")
     if elapsed is not None:
         parts.append(f"elapsed={elapsed:.2f}s")
     if error_msg:

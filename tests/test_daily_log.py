@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -101,6 +102,7 @@ class TestDailyLogFileLogging:
         """테스트마다 파일 로거를 초기화한다."""
         monkeypatch.setattr(daily_log_service, "LOG_DIR", tmp_path)
         monkeypatch.setattr(daily_log_service, "_file_logger", None)
+        monkeypatch.setattr(daily_log_service, "_current_log_date", None)
         yield
         # 핸들러 정리
         if daily_log_service._file_logger:
@@ -108,11 +110,16 @@ class TestDailyLogFileLogging:
                 h.close()
                 daily_log_service._file_logger.removeHandler(h)
             daily_log_service._file_logger = None
+        daily_log_service._current_log_date = None
+
+    def _today_log_file(self, tmp_path: Path) -> Path:
+        today = datetime.now(daily_log_service.KST).strftime("%Y-%m-%d")
+        return tmp_path / f"{today}.log"
 
     def test_log_request_creates_file(self, tmp_path: Path) -> None:
-        """log_request() 호출 시 로그 파일이 생성된다."""
+        """log_request() 호출 시 오늘 날짜 로그 파일이 생성된다."""
         daily_log_service.log_request(url="https://youtu.be/abc123")
-        log_file = tmp_path / "daily.log"
+        log_file = self._today_log_file(tmp_path)
         assert log_file.exists()
         content = log_file.read_text(encoding="utf-8")
         assert "REQUEST" in content
@@ -121,7 +128,7 @@ class TestDailyLogFileLogging:
     def test_log_request_with_video_id(self, tmp_path: Path) -> None:
         """video_id 지정 시 '추출 완료' 메시지가 기록된다."""
         daily_log_service.log_request(url="https://youtu.be/abc123", video_id="abc123")
-        content = (tmp_path / "daily.log").read_text(encoding="utf-8")
+        content = self._today_log_file(tmp_path).read_text(encoding="utf-8")
         assert "abc123 추출 완료" in content
 
     def test_log_success(self, tmp_path: Path) -> None:
@@ -133,7 +140,7 @@ class TestDailyLogFileLogging:
             detail_level="normal",
             elapsed=3.82,
         )
-        content = (tmp_path / "daily.log").read_text(encoding="utf-8")
+        content = self._today_log_file(tmp_path).read_text(encoding="utf-8")
         assert "SUCCESS" in content
         assert "abc123" in content
         assert "3.82" in content
@@ -143,7 +150,7 @@ class TestDailyLogFileLogging:
         daily_log_service.log_failure(
             "FAIL_TRANSCRIPT", video_id="xyz789", error_msg="자막 없음"
         )
-        content = (tmp_path / "daily.log").read_text(encoding="utf-8")
+        content = self._today_log_file(tmp_path).read_text(encoding="utf-8")
         assert "FAIL_TRANSCRIPT" in content
         assert "xyz789" in content
         assert "자막 없음" in content
